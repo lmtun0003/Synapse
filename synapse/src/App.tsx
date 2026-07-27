@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { HomePage } from '@/pages/HomePage'
 import { CampaignPage } from '@/pages/CampaignPage'
 import { GamePage } from '@/pages/GamePage'
@@ -15,23 +15,45 @@ import { SettingsPage } from '@/pages/SettingsPage'
 import { WelcomeModal } from '@/components/ui/WelcomeModal'
 import { useGameStore } from '@/store/gameStore'
 
+/**
+ * Thin animated shell wrapping every route.
+ * – Fast fade-in (0.15s) so navigation feels instant.
+ * – Persistent background fill (#0B0B0D) so the screen is NEVER black
+ *   between route transitions, even if a page's own background is transparent.
+ */
+function PageShell({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
+      style={{ background: '#0B0B0D', minHeight: '100vh' }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
 function AnimatedRoutes() {
   const location = useLocation()
   return (
-    <AnimatePresence mode="wait">
+    // mode="sync" — exit and enter animations overlap so there is no gap.
+    // Combined with PageShell's solid background, this eliminates black flashes.
+    <AnimatePresence mode="sync">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/campaign" element={<CampaignPage />} />
-        <Route path="/play" element={<GamePage />} />
-        <Route path="/daily" element={<DailyPage />} />
-        <Route path="/endless" element={<EndlessPage />} />
-        <Route path="/ranked" element={<RankedPage />} />
-        <Route path="/creator" element={<PuzzleCreatorPage />} />
-        <Route path="/community" element={<CommunityPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/leaderboard" element={<LeaderboardPage />} />
-        <Route path="/shop" element={<ShopPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/" element={<PageShell><HomePage /></PageShell>} />
+        <Route path="/campaign" element={<PageShell><CampaignPage /></PageShell>} />
+        <Route path="/play" element={<PageShell><GamePage /></PageShell>} />
+        <Route path="/daily" element={<PageShell><DailyPage /></PageShell>} />
+        <Route path="/endless" element={<PageShell><EndlessPage /></PageShell>} />
+        <Route path="/ranked" element={<PageShell><RankedPage /></PageShell>} />
+        <Route path="/creator" element={<PageShell><PuzzleCreatorPage /></PageShell>} />
+        <Route path="/community" element={<PageShell><CommunityPage /></PageShell>} />
+        <Route path="/profile" element={<PageShell><ProfilePage /></PageShell>} />
+        <Route path="/leaderboard" element={<PageShell><LeaderboardPage /></PageShell>} />
+        <Route path="/shop" element={<PageShell><ShopPage /></PageShell>} />
+        <Route path="/settings" element={<PageShell><SettingsPage /></PageShell>} />
       </Routes>
     </AnimatePresence>
   )

@@ -100,6 +100,7 @@ export function LevelCompleteModal({ result, puzzle, onNextLevel, onRetry, onMen
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+      onClick={onMenu}
     >
       <motion.div
         className="w-full max-w-sm"
@@ -107,6 +108,7 @@ export function LevelCompleteModal({ result, puzzle, onNextLevel, onRetry, onMen
         animate={{ y: 0, opacity: 1, scale: 1 }}
         exit={{ y: 80, opacity: 0, scale: 0.95 }}
         transition={{ type: 'spring', stiffness: 280, damping: 28, delay: 0.05 }}
+        onClick={e => e.stopPropagation()}
       >
         <GlassCard
           rounded="3xl"
