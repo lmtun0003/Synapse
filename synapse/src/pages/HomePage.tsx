@@ -87,6 +87,16 @@ const MENU_ITEMS = [
     href: '/creator',
     description: 'Design and share your puzzles',
   },
+  {
+    id: 'community',
+    icon: '🌐',
+    label: 'Community',
+    sub: 'Browse & rate puzzles',
+    color: 'green',
+    href: '/community',
+    description: 'Play and rate community-created puzzles',
+    badge: 'NEW',
+  },
 ]
 
 interface MenuCardProps {

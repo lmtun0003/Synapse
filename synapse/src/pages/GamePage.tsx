@@ -1,9 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { GameBoard } from '@/components/game/GameBoard'
 import { GameHUD } from '@/components/game/GameHUD'
 import { LevelCompleteModal } from '@/components/game/LevelCompleteModal'
+import { InGameTutorial } from '@/components/game/InGameTutorial'
+import { PuzzleRatingModal } from '@/components/game/PuzzleRatingModal'
 import { useGameStore } from '@/store/gameStore'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 
@@ -21,9 +23,42 @@ export function GamePage() {
     currentLevel,
     startGame,
     setCurrentLevel,
+    // tutorial
+    tutorialEnabled,
+    hasPlayedFirstGame,
+    setHasPlayedFirstGame,
+    setTutorialStep,
+    // community
+    communityPuzzles,
+    myRatings,
   } = useGameStore()
 
+  const [showRating, setShowRating] = useState(false)
+
   useKeyboardShortcuts()
+
+  // Show in-game tutorial on first play if tutorial is enabled
+  const showTutorial = tutorialEnabled && !hasPlayedFirstGame && mode === 'campaign'
+
+  // When campaign puzzle completes, check if it's a community puzzle and prompt rating
+  useEffect(() => {
+    if (completed && puzzle) {
+      const isCommunityPuzzle = communityPuzzles.some(cp => cp.id === puzzle.id)
+      const alreadyRated = !!myRatings[puzzle.id]
+      if (isCommunityPuzzle && !alreadyRated) {
+        // Show rating modal after a short delay (after completion animation)
+        const t = setTimeout(() => setShowRating(true), 2200)
+        return () => clearTimeout(t)
+      }
+    }
+  }, [completed, puzzle, communityPuzzles, myRatings])
+
+  // Reset tutorial step when starting a new game
+  useEffect(() => {
+    if (puzzle && showTutorial) {
+      setTutorialStep(0)
+    }
+  }, [puzzle?.id])
 
   useEffect(() => {
     if (!puzzle) navigate('/')
@@ -45,6 +80,7 @@ export function GamePage() {
     if (nextLevel && !nextLevel.locked) {
       setCurrentLevel(currentWorld, nextLevel.levelNumber)
       startGame(nextLevel.puzzle, 'campaign')
+      if (!hasPlayedFirstGame) setHasPlayedFirstGame()
     } else {
       navigate('/campaign')
     }
@@ -73,9 +109,10 @@ export function GamePage() {
         />
       </motion.div>
 
-      {/* Game Board */}
-      <div className="flex-1 flex items-center justify-center">
+      {/* Game Board + Tutorial overlay wrapper */}
+      <div className="flex-1 relative flex items-center justify-center">
         <GameBoard puzzle={puzzle} className="w-full h-full" />
+        <InGameTutorial visible={showTutorial} />
       </div>
 
       {/* Description */}
@@ -92,13 +129,26 @@ export function GamePage() {
 
       {/* Level Complete Modal */}
       <AnimatePresence>
-        {completed && lastResult && (
+        {completed && lastResult && !showRating && (
           <LevelCompleteModal
             result={lastResult}
             puzzle={puzzle}
             onNextLevel={handleNextLevel}
             onRetry={resetPuzzle}
             onMenu={handleMenu}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Community Puzzle Rating Modal */}
+      <AnimatePresence>
+        {showRating && puzzle && (
+          <PuzzleRatingModal
+            puzzleId={puzzle.id}
+            puzzleTitle={puzzle.title}
+            onDone={() => {
+              setShowRating(false)
+            }}
           />
         )}
       </AnimatePresence>

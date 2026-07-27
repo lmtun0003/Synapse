@@ -10,6 +10,11 @@ import type {
   World,
   LevelResult,
   RankTier,
+  CommunityPuzzle,
+  PuzzleRating,
+  GridNode,
+  Direction,
+  NodeType,
 } from '@/types/game'
 import {
   propagateSignals,
@@ -64,6 +69,35 @@ interface PlayerSlice {
   updateStreak: () => void
 }
 
+// ─── Community Slice ─────────────────────────────────────────────────────────
+
+interface CommunitySlice {
+  communityPuzzles: CommunityPuzzle[]
+  myRatings: Record<string, PuzzleRating>    // puzzleId → rating
+  publishedPuzzles: CommunityPuzzle[]        // puzzles authored by current player
+
+  publishPuzzle: (puzzle: Puzzle, description?: string, tags?: string[]) => CommunityPuzzle
+  ratePuzzle: (puzzleId: string, stars: number, comment?: string) => void
+  loadCommunityPuzzles: () => void
+}
+
+// ─── Tutorial Slice ───────────────────────────────────────────────────────────
+
+interface TutorialSlice {
+  hasSeenWelcome: boolean           // first-launch prompt shown?
+  tutorialEnabled: boolean          // master toggle
+  hasPlayedFirstGame: boolean       // in-game tutorial shown?
+  currentTutorialStep: number
+
+  setHasSeenWelcome: () => void
+  resetWelcome: () => void
+  setTutorialEnabled: (v: boolean) => void
+  setHasPlayedFirstGame: () => void
+  resetFirstGame: () => void
+  setTutorialStep: (step: number) => void
+  dismissTutorial: () => void
+}
+
 // ─── UI Slice ────────────────────────────────────────────────────────────────
 
 interface UISlice {
@@ -84,7 +118,7 @@ interface UISlice {
 
 // ─── Combined Store ──────────────────────────────────────────────────────────
 
-type Store = GameSlice & ProgressSlice & PlayerSlice & UISlice
+type Store = GameSlice & ProgressSlice & PlayerSlice & CommunitySlice & TutorialSlice & UISlice
 
 const DEFAULT_PLAYER: PlayerProfile = {
   id: 'local_player',
@@ -356,6 +390,74 @@ export const useGameStore = create<Store>()(
         })
       },
 
+      // ── Community ────────────────────────────────────────────────────────
+      communityPuzzles: SEED_COMMUNITY_PUZZLES,
+      myRatings: {},
+      publishedPuzzles: [],
+
+      publishPuzzle: (puzzle, description, tags = []) => {
+        const { player, communityPuzzles } = get()
+        const difficulty = puzzle.rows <= 3 ? 'easy' : puzzle.rows <= 4 ? 'medium' : puzzle.rows <= 5 ? 'hard' : 'expert'
+        const newPub: CommunityPuzzle = {
+          id: `community_${Date.now()}`,
+          puzzle: { ...puzzle, id: `community_${Date.now()}` },
+          authorId: player.id,
+          authorName: player.displayName,
+          title: puzzle.title,
+          description,
+          shareCode: generateCode(),
+          publishedAt: new Date().toISOString(),
+          playCount: 0,
+          ratingCount: 0,
+          averageRating: 0,
+          tags,
+          difficulty,
+        }
+        set({
+          communityPuzzles: [newPub, ...communityPuzzles],
+          publishedPuzzles: [newPub, ...get().publishedPuzzles],
+        })
+        get().addSparks(10)
+        return newPub
+      },
+
+      ratePuzzle: (puzzleId, stars, comment) => {
+        const { myRatings, communityPuzzles, player } = get()
+        const existing = myRatings[puzzleId]
+        const newRating: PuzzleRating = {
+          puzzleId, stars, comment,
+          userId: player.id,
+          ratedAt: new Date().toISOString(),
+        }
+        const updated = communityPuzzles.map(cp => {
+          if (cp.id !== puzzleId) return cp
+          const wasRated = !!existing
+          const prevTotal = cp.averageRating * cp.ratingCount
+          const newCount = wasRated ? cp.ratingCount : cp.ratingCount + 1
+          const newTotal = wasRated ? prevTotal - existing.stars + stars : prevTotal + stars
+          return { ...cp, ratingCount: newCount, averageRating: newTotal / newCount }
+        })
+        set({ communityPuzzles: updated, myRatings: { ...myRatings, [puzzleId]: newRating } })
+      },
+
+      loadCommunityPuzzles: () => {
+        // In production this would fetch from Supabase
+      },
+
+      // ── Tutorial ─────────────────────────────────────────────────────────
+      hasSeenWelcome: false,
+      tutorialEnabled: true,
+      hasPlayedFirstGame: false,
+      currentTutorialStep: 0,
+
+      setHasSeenWelcome: () => set({ hasSeenWelcome: true }),
+      resetWelcome: () => set({ hasSeenWelcome: false, hasPlayedFirstGame: false, tutorialEnabled: true, currentTutorialStep: 0 }),
+      setTutorialEnabled: (v) => set({ tutorialEnabled: v }),
+      setHasPlayedFirstGame: () => set({ hasPlayedFirstGame: true }),
+      resetFirstGame: () => set({ hasPlayedFirstGame: false, currentTutorialStep: 0 }),
+      setTutorialStep: (step) => set({ currentTutorialStep: step }),
+      dismissTutorial: () => set({ tutorialEnabled: false, hasPlayedFirstGame: true }),
+
       // ── UI ──────────────────────────────────────────────────────────────
       theme: 'dark',
       sfxEnabled: true,
@@ -383,10 +485,274 @@ export const useGameStore = create<Store>()(
         musicEnabled: state.musicEnabled,
         hapticEnabled: state.hapticEnabled,
         showTutorial: state.showTutorial,
+        communityPuzzles: state.communityPuzzles,
+        myRatings: state.myRatings,
+        publishedPuzzles: state.publishedPuzzles,
+        hasSeenWelcome: state.hasSeenWelcome,
+        tutorialEnabled: state.tutorialEnabled,
+        hasPlayedFirstGame: state.hasPlayedFirstGame,
       }),
     }
   )
 )
+
+function generateCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
+// ─── Seed Community Puzzles ───────────────────────────────────────────────────
+
+function mkNode(id: string, r: number, c: number, type: NodeType, conns: Direction[]): GridNode {
+  return { id, row: r, col: c, type, state: (type === 'source' ? 'active' : 'inactive') as NodeState, rotation: 0, connections: conns }
+}
+
+const SEED_COMMUNITY_PUZZLES: CommunityPuzzle[] = [
+  {
+    id: 'cp_001',
+    title: 'Spiral Path',
+    description: 'A classic spiral — can you find the perfect route?',
+    authorId: 'neural_ace',
+    authorName: 'NeuralAce',
+    shareCode: 'SPIRAL01',
+    publishedAt: '2026-07-25T10:00:00Z',
+    playCount: 1247,
+    ratingCount: 384,
+    averageRating: 4.7,
+    tags: ['beginner', 'classic'],
+    difficulty: 'easy',
+    featured: true,
+    puzzle: {
+      id: 'cp_001',
+      title: 'Spiral Path',
+      rows: 3, cols: 4,
+      mechanics: ['basic'],
+      targetMoves: { perfect: 3, gold: 4, silver: 5, bronze: 7 },
+      connections: [],
+      grid: [
+        mkNode('s',  0, 0, 'source', ['E', 'S']),
+        mkNode('n1', 0, 1, 'basic',  ['W', 'E']),
+        mkNode('n2', 0, 2, 'basic',  ['W', 'E']),
+        mkNode('t1', 0, 3, 'target', ['W', 'S']),
+        mkNode('n3', 1, 0, 'basic',  ['N', 'S']),
+        mkNode('n4', 1, 1, 'basic',  ['N', 'S', 'E']),
+        mkNode('n5', 1, 2, 'basic',  ['E', 'W']),
+        mkNode('n6', 1, 3, 'basic',  ['N', 'S', 'W']),
+        mkNode('t2', 2, 0, 'target', ['N', 'E']),
+        mkNode('n7', 2, 1, 'basic',  ['W', 'E']),
+        mkNode('n8', 2, 2, 'basic',  ['W', 'E']),
+        mkNode('t3', 2, 3, 'target', ['N', 'W']),
+      ],
+    },
+  },
+  {
+    id: 'cp_002',
+    title: 'Mirror Maze',
+    description: 'Reflect your signals through a tight corridor.',
+    authorId: 'grid_master',
+    authorName: 'GridMaster',
+    shareCode: 'MIRR0R02',
+    publishedAt: '2026-07-24T14:30:00Z',
+    playCount: 892,
+    ratingCount: 256,
+    averageRating: 4.5,
+    tags: ['mirrors', 'intermediate'],
+    difficulty: 'medium',
+    featured: true,
+    puzzle: {
+      id: 'cp_002',
+      title: 'Mirror Maze',
+      rows: 4, cols: 4,
+      mechanics: ['basic', 'mirror'],
+      targetMoves: { perfect: 4, gold: 6, silver: 8, bronze: 11 },
+      connections: [],
+      grid: [
+        mkNode('s',   0, 0, 'source', ['E', 'S']),
+        mkNode('n01', 0, 1, 'basic',  ['W', 'E']),
+        mkNode('m1',  0, 2, 'mirror', ['N', 'E']),
+        mkNode('n03', 0, 3, 'basic',  ['W', 'S']),
+        mkNode('n10', 1, 0, 'basic',  ['N', 'S']),
+        mkNode('n11', 1, 1, 'basic',  ['N', 'S', 'E', 'W']),
+        mkNode('n12', 1, 2, 'basic',  ['N', 'S', 'E', 'W']),
+        mkNode('n13', 1, 3, 'basic',  ['N', 'S', 'W']),
+        mkNode('m2',  2, 0, 'mirror', ['S', 'E']),
+        mkNode('n21', 2, 1, 'basic',  ['N', 'S', 'E', 'W']),
+        mkNode('n22', 2, 2, 'basic',  ['N', 'S', 'E', 'W']),
+        mkNode('t1',  2, 3, 'target', ['N', 'S', 'W']),
+        mkNode('n30', 3, 0, 'basic',  ['N', 'E']),
+        mkNode('n31', 3, 1, 'basic',  ['W', 'E']),
+        mkNode('n32', 3, 2, 'basic',  ['W', 'E']),
+        mkNode('t2',  3, 3, 'target', ['W']),
+      ],
+    },
+  },
+  {
+    id: 'cp_003',
+    title: 'Quantum Leap',
+    description: 'Use teleporters to bridge the impossible gap.',
+    authorId: 'synapse_x',
+    authorName: 'SynapseX',
+    shareCode: 'QLEAP003',
+    publishedAt: '2026-07-23T09:15:00Z',
+    playCount: 654,
+    ratingCount: 178,
+    averageRating: 4.8,
+    tags: ['teleport', 'expert'],
+    difficulty: 'hard',
+    featured: false,
+    puzzle: {
+      id: 'cp_003',
+      title: 'Quantum Leap',
+      rows: 4, cols: 5,
+      mechanics: ['basic', 'teleport'],
+      targetMoves: { perfect: 5, gold: 7, silver: 10, bronze: 14 },
+      connections: [],
+      grid: [
+        mkNode('s',   0, 0, 'source',  ['E', 'S']),
+        mkNode('n01', 0, 1, 'basic',   ['W', 'E']),
+        mkNode('n02', 0, 2, 'basic',   ['W', 'S']),
+        mkNode('n03', 0, 3, 'basic',   ['W', 'E']),
+        mkNode('n04', 0, 4, 'basic',   ['W', 'S']),
+        mkNode('n10', 1, 0, 'basic',   ['N', 'S']),
+        mkNode('tp1', 1, 1, 'teleport',['N', 'S', 'E', 'W']),
+        mkNode('n12', 1, 2, 'basic',   ['N', 'S']),
+        mkNode('tp2', 1, 3, 'teleport',['N', 'S', 'E', 'W']),
+        mkNode('n14', 1, 4, 'basic',   ['N', 'S']),
+        mkNode('n20', 2, 0, 'basic',   ['N', 'S']),
+        mkNode('n21', 2, 1, 'basic',   ['N', 'S', 'E']),
+        mkNode('n22', 2, 2, 'basic',   ['N', 'S', 'E', 'W']),
+        mkNode('n23', 2, 3, 'basic',   ['N', 'S', 'E', 'W']),
+        mkNode('n24', 2, 4, 'basic',   ['N', 'S', 'W']),
+        mkNode('t1',  3, 0, 'target',  ['N', 'E']),
+        mkNode('n31', 3, 1, 'basic',   ['W', 'E']),
+        mkNode('n32', 3, 2, 'basic',   ['W', 'E']),
+        mkNode('n33', 3, 3, 'basic',   ['W', 'E']),
+        mkNode('t2',  3, 4, 'target',  ['W']),
+      ],
+    },
+  },
+  {
+    id: 'cp_004',
+    title: 'The Inverter',
+    description: 'Deactivate to activate. Think backwards.',
+    authorId: 'logic_flow',
+    authorName: 'LogicFlow',
+    shareCode: 'INVRT004',
+    publishedAt: '2026-07-22T16:45:00Z',
+    playCount: 423,
+    ratingCount: 112,
+    averageRating: 4.3,
+    tags: ['inverter', 'tricky'],
+    difficulty: 'medium',
+    featured: false,
+    puzzle: {
+      id: 'cp_004',
+      title: 'The Inverter',
+      rows: 3, cols: 4,
+      mechanics: ['basic', 'inverter'],
+      targetMoves: { perfect: 3, gold: 4, silver: 6, bronze: 9 },
+      connections: [],
+      grid: [
+        mkNode('s',  0, 0, 'source',  ['E', 'S']),
+        mkNode('n1', 0, 1, 'basic',   ['W', 'E', 'S']),
+        mkNode('iv', 0, 2, 'inverter',['W', 'E', 'S']),
+        mkNode('t1', 0, 3, 'target',  ['W', 'S']),
+        mkNode('n4', 1, 0, 'basic',   ['N', 'S', 'E']),
+        mkNode('n5', 1, 1, 'basic',   ['N', 'S', 'E', 'W']),
+        mkNode('n6', 1, 2, 'basic',   ['N', 'S', 'E', 'W']),
+        mkNode('n7', 1, 3, 'basic',   ['N', 'S', 'W']),
+        mkNode('t2', 2, 0, 'target',  ['N', 'E']),
+        mkNode('n9', 2, 1, 'basic',   ['W', 'E']),
+        mkNode('na', 2, 2, 'basic',   ['W', 'E']),
+        mkNode('t3', 2, 3, 'target',  ['W']),
+      ],
+    },
+  },
+  {
+    id: 'cp_005',
+    title: 'Gravity Falls',
+    description: 'Every signal must fall before it can rise.',
+    authorId: 'algo_mind',
+    authorName: 'AlgoMind',
+    shareCode: 'GRAV0005',
+    publishedAt: '2026-07-21T11:00:00Z',
+    playCount: 331,
+    ratingCount: 89,
+    averageRating: 4.1,
+    tags: ['gravity', 'vertical'],
+    difficulty: 'medium',
+    featured: false,
+    puzzle: {
+      id: 'cp_005',
+      title: 'Gravity Falls',
+      rows: 4, cols: 3,
+      mechanics: ['basic', 'gravity'],
+      targetMoves: { perfect: 4, gold: 5, silver: 7, bronze: 10 },
+      connections: [],
+      grid: [
+        mkNode('s',  0, 1, 'source',  ['S', 'E', 'W']),
+        mkNode('n1', 0, 0, 'basic',   ['E', 'S']),
+        mkNode('n2', 0, 2, 'basic',   ['W', 'S']),
+        mkNode('g1', 1, 0, 'gravity', ['S', 'E']),
+        mkNode('n4', 1, 1, 'basic',   ['N', 'S', 'E', 'W']),
+        mkNode('g2', 1, 2, 'gravity', ['S', 'W']),
+        mkNode('n6', 2, 0, 'basic',   ['N', 'S', 'E']),
+        mkNode('n7', 2, 1, 'basic',   ['N', 'S', 'E', 'W']),
+        mkNode('n8', 2, 2, 'basic',   ['N', 'S', 'W']),
+        mkNode('t1', 3, 0, 'target',  ['N', 'E']),
+        mkNode('t2', 3, 1, 'target',  ['N', 'E', 'W']),
+        mkNode('t3', 3, 2, 'target',  ['N', 'W']),
+      ],
+    },
+  },
+  {
+    id: 'cp_006',
+    title: 'Crossfire',
+    description: 'Two signals. One crossing point. No mistakes.',
+    authorId: 'circuit_ai',
+    authorName: 'CircuitAI',
+    shareCode: 'XFIRE006',
+    publishedAt: '2026-07-20T08:00:00Z',
+    playCount: 789,
+    ratingCount: 201,
+    averageRating: 4.6,
+    tags: ['advanced', 'precise'],
+    difficulty: 'hard',
+    featured: false,
+    puzzle: {
+      id: 'cp_006',
+      title: 'Crossfire',
+      rows: 4, cols: 4,
+      mechanics: ['basic', 'relay'],
+      targetMoves: { perfect: 5, gold: 7, silver: 9, bronze: 13 },
+      connections: [],
+      grid: [
+        mkNode('s1',  0, 0, 'source', ['E', 'S']),
+        mkNode('n01', 0, 1, 'basic',  ['W', 'E']),
+        mkNode('n02', 0, 2, 'basic',  ['W', 'S']),
+        mkNode('t1',  0, 3, 'target', ['W', 'S']),
+        mkNode('n10', 1, 0, 'basic',  ['N', 'S']),
+        mkNode('r1',  1, 1, 'relay',  ['N', 'S', 'E', 'W']),
+        mkNode('r2',  1, 2, 'relay',  ['N', 'S', 'E', 'W']),
+        mkNode('n13', 1, 3, 'basic',  ['N', 'S', 'W']),
+        mkNode('n20', 2, 0, 'basic',  ['N', 'S', 'E']),
+        mkNode('r3',  2, 1, 'relay',  ['N', 'S', 'E', 'W']),
+        mkNode('r4',  2, 2, 'relay',  ['N', 'S', 'E', 'W']),
+        mkNode('n23', 2, 3, 'basic',  ['N', 'S', 'W']),
+        mkNode('t2',  3, 0, 'target', ['N', 'E']),
+        mkNode('n31', 3, 1, 'basic',  ['W', 'E']),
+        mkNode('n32', 3, 2, 'basic',  ['W', 'E']),
+        mkNode('s2',  3, 3, 'source', ['W', 'N']),
+      ],
+    },
+  },
+]
+
+// patch teleport pairs on cp_003
+const tp1 = SEED_COMMUNITY_PUZZLES[2].puzzle.grid.find(n => n.id === 'tp1')
+const tp2 = SEED_COMMUNITY_PUZZLES[2].puzzle.grid.find(n => n.id === 'tp2')
+if (tp1) tp1.teleportPair = 'tp2'
+if (tp2) tp2.teleportPair = 'tp1'
 
 function getRatingXP(rating: RatingTier): number {
   switch (rating) {

@@ -219,6 +219,46 @@ export interface Season {
   xpToNextLevel: number
 }
 
+// ─── Community Puzzles ───────────────────────────────────────────────────────
+
+export type CommunityPuzzleSort = 'top' | 'new' | 'trending' | 'easy' | 'hard'
+
+export interface CommunityPuzzle {
+  id: string
+  puzzle: Puzzle
+  authorId: string
+  authorName: string
+  title: string
+  description?: string
+  shareCode: string
+  publishedAt: string
+  playCount: number
+  ratingCount: number
+  averageRating: number   // 1–5 stars
+  tags: string[]
+  difficulty: 'easy' | 'medium' | 'hard' | 'expert'
+  featured?: boolean
+}
+
+export interface PuzzleRating {
+  puzzleId: string
+  userId: string
+  stars: number           // 1–5
+  comment?: string
+  ratedAt: string
+}
+
+// ─── Tutorial ────────────────────────────────────────────────────────────────
+
+export interface TutorialStep {
+  id: string
+  title: string
+  body: string
+  highlightTarget?: string   // CSS selector or node id to highlight
+  position?: 'top' | 'bottom' | 'center'
+  actionLabel?: string
+}
+
 // ─── Puzzle Creator ──────────────────────────────────────────────────────────
 
 export interface CreatorState {

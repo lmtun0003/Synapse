@@ -37,7 +37,12 @@ function Toggle({ enabled, onChange, label, description, icon }: ToggleProps) {
 
 export function SettingsPage() {
   const navigate = useNavigate()
-  const { theme, sfxEnabled, musicEnabled, hapticEnabled, setTheme, toggleSfx, toggleMusic } = useGameStore()
+  const {
+    theme, sfxEnabled, musicEnabled, hapticEnabled,
+    setTheme, toggleSfx, toggleMusic,
+    tutorialEnabled, setTutorialEnabled,
+    resetWelcome, resetFirstGame,
+  } = useGameStore()
 
   return (
     <div className="min-h-screen flex flex-col max-w-md mx-auto px-4 py-6">
@@ -93,10 +98,38 @@ export function SettingsPage() {
       {/* Gameplay */}
       <GlassCard padding="md" rounded="2xl" animate delay={0.15} className="mb-4">
         <h2 className="text-white/50 text-xs uppercase tracking-widest mb-3">Gameplay</h2>
+        <Toggle
+          icon="🎓"
+          label="Tutorial"
+          description="Show step-by-step hints on first play"
+          enabled={tutorialEnabled}
+          onChange={() => {
+            const next = !tutorialEnabled
+            setTutorialEnabled(next)
+            if (next) resetFirstGame()
+          }}
+        />
         <Toggle icon="💡" label="Show Hints" description="Display move hints when stuck" enabled={true} onChange={() => {}} />
         <Toggle icon="🔢" label="Show Move Count" description="Track your moves during play" enabled={true} onChange={() => {}} />
         <Toggle icon="⏱" label="Show Timer" description="Display elapsed time" enabled={true} onChange={() => {}} />
         <Toggle icon="↩" label="Confirm Undo" description="Ask before undoing moves" enabled={false} onChange={() => {}} />
+      </GlassCard>
+
+      {/* Onboarding */}
+      <GlassCard padding="md" rounded="2xl" animate delay={0.18} className="mb-4">
+        <h2 className="text-white/50 text-xs uppercase tracking-widest mb-3">Onboarding</h2>
+        <div className="flex flex-col gap-1">
+          <button
+            className="flex items-center gap-3 py-2.5 text-left hover:bg-white/4 rounded-xl px-2 transition-colors"
+            onClick={resetWelcome}
+          >
+            <span className="text-xl w-7 text-center">👋</span>
+            <div className="flex-1">
+              <span className="text-white/70 text-sm">Re-enable Welcome Screen</span>
+              <div className="text-white/30 text-xs">Show the tutorial prompt on next launch</div>
+            </div>
+          </button>
+        </div>
       </GlassCard>
 
       {/* Notifications */}
