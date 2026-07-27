@@ -1,0 +1,20 @@
+{
+  "name": "SYNAPSE",
+  "short_name": "SYNAPSE",
+  "description": "Every Move Changes Everything. A premium logic puzzle game.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0B0D",
+  "theme_color": "#0B0B0D",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/synapse-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "categories": ["games", "puzzle"],
+  "lang": "en",
+  "scope": "/"
+}
