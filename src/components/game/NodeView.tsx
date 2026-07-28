@@ -80,13 +80,19 @@ export function NodeView({ node, size, onTap, disabled }: NodeViewProps) {
         </motion.span>
       )}
       {node.mechanic === 'mirror' && (
-        <span className="absolute text-[10px] text-[var(--color-secondary)]"> intern</span>
+        <span className="absolute text-[11px] text-[var(--color-secondary)]">⟋</span>
       )}
       {node.mechanic === 'teleporter' && (
         <span className="absolute text-[10px] text-[var(--color-accent)]">◎</span>
       )}
       {node.mechanic === 'gravity' && (
         <span className="absolute text-[10px] text-[var(--color-secondary)]">◉</span>
+      )}
+      {node.mechanic === 'inverter' && (
+        <span className="absolute text-[10px] text-[var(--color-secondary)]">⊘</span>
+      )}
+      {node.mechanic === 'power_link' && (
+        <span className="absolute text-[10px] text-[var(--color-success)]">⚡</span>
       )}
       {node.mechanic === 'locked' && node.locked && (
         <span className="absolute text-[10px] text-[var(--color-warning)]">⬡</span>

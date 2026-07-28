@@ -2,7 +2,20 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { DEFAULT_ELO, rankFromElo, updateElo } from '@/lib/elo'
 import { ratingSparks, ratingXp, isBetterRating } from '@/engine/rating'
-import type { RankTier, RatingTier } from '@/engine/types'
+import {
+  ACHIEVEMENTS,
+  tiersReached,
+  sparksBetweenTiers,
+  tierLabel,
+  type AchievementMetric,
+} from '@/data/achievements'
+import {
+  currentMonthKey,
+  seasonStandings,
+  type PlayerLocation,
+  type RewardBundle,
+} from '@/lib/leaderboard'
+import type { MechanicKind, RankTier, RatingTier } from '@/engine/types'
 
 export interface LevelProgress {
   bestRating: RatingTier
@@ -11,8 +24,24 @@ export interface LevelProgress {
   perfect: boolean
 }
 
+export interface AchievementUnlock {
+  id: string
+  title: string
+  tier: number
+  tierName: string
+  sparks: number
+}
+
+export interface SeasonClaim {
+  month: string
+  total: RewardBundle
+  breakdown: { scope: string; rank: number; reward: RewardBundle }[]
+}
+
 interface PlayerState {
   displayName: string
+  country: string
+  region: string
   xp: number
   level: number
   title: string
@@ -27,7 +56,16 @@ interface PlayerState {
   ownedCosmetics: string[]
   equippedTheme: string
   equippedBoard: string
-  achievements: string[]
+  /** Achievement id -> number of tiers claimed (0 = locked). */
+  achievementTiers: Record<string, number>
+  /** Achievement ids featured on the public profile (max 3). */
+  showcasedAchievements: string[]
+  /** Newly earned tiers awaiting a toast. */
+  recentUnlocks: AchievementUnlock[]
+  /** Node mechanics the player has already been introduced to. */
+  seenMechanics: MechanicKind[]
+  /** Month (YYYY-MM) the last season reward was claimed. */
+  lastSeasonRewardMonth: string | null
   levelProgress: Record<string, LevelProgress>
   stats: {
     puzzlesSolved: number
@@ -35,8 +73,10 @@ interface PlayerState {
     totalMoves: number
     fastestSolveMs: number | null
     campaignsCompleted: number
+    maxDailyStreak: number
   }
   setDisplayName: (name: string) => void
+  setLocation: (country: string, region: string) => void
   recordSolve: (payload: {
     puzzleId: string
     rating: RatingTier
@@ -46,8 +86,12 @@ interface PlayerState {
   }) => void
   purchaseItem: (id: string, currency: 'sparks' | 'prisms', price: number) => boolean
   equipCosmetic: (kind: 'theme' | 'board', id: string) => void
-  unlockAchievement: (id: string, sparks: number) => void
+  markMechanicsSeen: (mechanics: MechanicKind[]) => void
+  syncAchievements: () => AchievementUnlock[]
+  setShowcase: (ids: string[]) => void
+  dismissUnlock: (id: string) => void
   applyRankedResult: (won: boolean, opponentElo: number) => void
+  claimSeasonRewards: () => SeasonClaim | null
 }
 
 function xpToLevel(xp: number): number {
@@ -68,6 +112,8 @@ export const usePlayerStore = create<PlayerState>()(
   persist(
     (set, get) => ({
       displayName: 'Player',
+      country: 'United States',
+      region: 'California',
       xp: 0,
       level: 1,
       title: 'Spark',
@@ -82,7 +128,11 @@ export const usePlayerStore = create<PlayerState>()(
       ownedCosmetics: ['theme-midnight'],
       equippedTheme: 'theme-midnight',
       equippedBoard: 'board-default',
-      achievements: [],
+      achievementTiers: {},
+      showcasedAchievements: [],
+      recentUnlocks: [],
+      seenMechanics: [],
+      lastSeasonRewardMonth: null,
       levelProgress: {},
       stats: {
         puzzlesSolved: 0,
@@ -90,8 +140,10 @@ export const usePlayerStore = create<PlayerState>()(
         totalMoves: 0,
         fastestSolveMs: null,
         campaignsCompleted: 0,
+        maxDailyStreak: 0,
       },
       setDisplayName: (displayName) => set({ displayName }),
+      setLocation: (country, region) => set({ country, region }),
       recordSolve: ({ puzzleId, rating, moves, elapsedMs, mode }) => {
         const state = get()
         const prev = state.levelProgress[puzzleId]
@@ -149,8 +201,10 @@ export const usePlayerStore = create<PlayerState>()(
                 ? elapsedMs
                 : Math.min(state.stats.fastestSolveMs, elapsedMs),
             campaignsCompleted: state.stats.campaignsCompleted,
+            maxDailyStreak: Math.max(state.stats.maxDailyStreak, dailyStreak),
           },
         })
+        get().syncAchievements()
       },
       purchaseItem: (id, currency, price) => {
         const state = get()
@@ -168,14 +222,65 @@ export const usePlayerStore = create<PlayerState>()(
         if (kind === 'theme') set({ equippedTheme: id })
         else set({ equippedBoard: id })
       },
-      unlockAchievement: (id, sparks) => {
-        const state = get()
-        if (state.achievements.includes(id)) return
-        set({
-          achievements: [...state.achievements, id],
-          sparks: state.sparks + sparks,
-        })
+      markMechanicsSeen: (mechanics) => {
+        const seen = new Set(get().seenMechanics)
+        let changed = false
+        for (const m of mechanics) {
+          if (!seen.has(m)) {
+            seen.add(m)
+            changed = true
+          }
+        }
+        if (changed) set({ seenMechanics: [...seen] })
       },
+      syncAchievements: () => {
+        const state = get()
+        const metrics: Record<AchievementMetric, number> = {
+          puzzlesSolved: state.stats.puzzlesSolved,
+          perfectScores: state.stats.perfectScores,
+          level: state.level,
+          elo: state.elo,
+          maxDailyStreak: state.stats.maxDailyStreak,
+        }
+
+        const nextTiers = { ...state.achievementTiers }
+        const unlocks: AchievementUnlock[] = []
+        let sparkGain = 0
+
+        for (const ach of ACHIEVEMENTS) {
+          const reached = tiersReached(ach, metrics[ach.metric])
+          const claimed = nextTiers[ach.id] ?? 0
+          if (reached > claimed) {
+            sparkGain += sparksBetweenTiers(ach, claimed, reached)
+            for (let t = claimed + 1; t <= reached; t++) {
+              unlocks.push({
+                id: ach.id,
+                title: ach.title,
+                tier: t,
+                tierName: tierLabel(t),
+                sparks: ach.tiers[t - 1]?.sparks ?? 0,
+              })
+            }
+            nextTiers[ach.id] = reached
+          }
+        }
+
+        if (unlocks.length === 0) return []
+
+        set({
+          achievementTiers: nextTiers,
+          sparks: state.sparks + sparkGain,
+          recentUnlocks: [...state.recentUnlocks, ...unlocks],
+        })
+        return unlocks
+      },
+      setShowcase: (ids) => set({ showcasedAchievements: ids.slice(0, 3) }),
+      dismissUnlock: (id) =>
+        set({
+          recentUnlocks: get().recentUnlocks.filter(
+            (u) => `${u.id}-${u.tier}` !== id,
+          ),
+        }),
       applyRankedResult: (won, opponentElo) => {
         const elo = updateElo(get().elo, opponentElo, won ? 1 : 0)
         set({
@@ -183,8 +288,45 @@ export const usePlayerStore = create<PlayerState>()(
           rank: rankFromElo(elo),
           winStreak: won ? get().winStreak + 1 : 0,
         })
+        get().syncAchievements()
+      },
+      claimSeasonRewards: () => {
+        const state = get()
+        const month = currentMonthKey()
+        if (state.lastSeasonRewardMonth === month) return null
+
+        const location: PlayerLocation = {
+          name: state.displayName,
+          elo: state.elo,
+          country: state.country,
+          region: state.region,
+        }
+        const standings = seasonStandings(location)
+        const total = standings.reduce(
+          (acc, s) => ({
+            sparks: acc.sparks + s.reward.sparks,
+            prisms: acc.prisms + s.reward.prisms,
+          }),
+          { sparks: 0, prisms: 0 } as RewardBundle,
+        )
+
+        set({
+          sparks: state.sparks + total.sparks,
+          prisms: state.prisms + total.prisms,
+          lastSeasonRewardMonth: month,
+        })
+
+        return {
+          month,
+          total,
+          breakdown: standings.map((s) => ({
+            scope: s.scope,
+            rank: s.rank,
+            reward: s.reward,
+          })),
+        }
       },
     }),
-    { name: 'synapse.player.v1' },
+    { name: 'synapse.player.v1', version: 2 },
   ),
 )

@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { useEffect } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { usePlayerStore } from '@/stores/playerStore'
+import { AchievementToast } from '@/components/AchievementToast'
 
 const NAV = [
   { to: '/', label: 'Home', icon: '◈' },
@@ -29,6 +30,7 @@ export function AppShell() {
 
   return (
     <div className="bg-app relative min-h-dvh text-[var(--color-text)]">
+      <AchievementToast />
       {!hideNav && (
         <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 pb-2 pt-6">
           <div className="flex items-baseline gap-3">
