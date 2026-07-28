@@ -24,6 +24,10 @@ import {
 } from '@/engine/gameEngine'
 import { WORLDS } from '@/data/levels'
 import { ACHIEVEMENTS as ACHIEVEMENTS_DATA, TIER_DEFS as ACHIEVEMENT_TIER_DEFS } from '@/data/achievements'
+import { DEFAULT_SHOP_ITEMS } from '@/data/shopItems'
+import { DEFAULT_GAME_CONFIG } from '@/data/gameConfig'
+import type { GameConfig } from '@/data/gameConfig'
+import type { ShopItem } from '@/types/game'
 
 // ─── Game Slice ──────────────────────────────────────────────────────────────
 
@@ -95,6 +99,22 @@ interface CommunitySlice {
   loadCommunityPuzzles: () => void
 }
 
+// ─── Admin Slice ──────────────────────────────────────────────────────────────
+
+interface AdminSlice {
+  shopItems: ShopItem[]
+  gameConfig: GameConfig
+  adminUnlocked: boolean
+
+  setShopItems: (items: ShopItem[]) => void
+  addShopItem: (item: ShopItem) => void
+  updateShopItem: (id: string, patch: Partial<ShopItem>) => void
+  deleteShopItem: (id: string) => void
+  setGameConfig: (patch: Partial<GameConfig>) => void
+  unlockAdmin: () => void
+  lockAdmin: () => void
+}
+
 // ─── Tutorial Slice ───────────────────────────────────────────────────────────
 
 interface TutorialSlice {
@@ -132,7 +152,7 @@ interface UISlice {
 
 // ─── Combined Store ──────────────────────────────────────────────────────────
 
-type Store = GameSlice & ProgressSlice & PlayerSlice & CommunitySlice & TutorialSlice & UISlice
+type Store = GameSlice & ProgressSlice & PlayerSlice & AdminSlice & CommunitySlice & TutorialSlice & UISlice
 
 const DEFAULT_PLAYER: PlayerProfile = {
   id: 'local_player',
@@ -440,6 +460,21 @@ export const useGameStore = create<Store>()(
           : [...s.pinnedAchievements.slice(0, 3), id],
       })),
 
+      // ── Admin ────────────────────────────────────────────────────────────
+      shopItems: DEFAULT_SHOP_ITEMS,
+      gameConfig: DEFAULT_GAME_CONFIG,
+      adminUnlocked: false,
+
+      setShopItems: (items) => set({ shopItems: items }),
+      addShopItem: (item) => set(s => ({ shopItems: [...s.shopItems, item] })),
+      updateShopItem: (id, patch) => set(s => ({
+        shopItems: s.shopItems.map(i => i.id === id ? { ...i, ...patch } : i),
+      })),
+      deleteShopItem: (id) => set(s => ({ shopItems: s.shopItems.filter(i => i.id !== id) })),
+      setGameConfig: (patch) => set(s => ({ gameConfig: { ...s.gameConfig, ...patch } })),
+      unlockAdmin: () => set({ adminUnlocked: true }),
+      lockAdmin: () => set({ adminUnlocked: false }),
+
       // ── Community ────────────────────────────────────────────────────────
       communityPuzzles: SEED_COMMUNITY_PUZZLES,
       myRatings: {},
@@ -541,6 +576,8 @@ export const useGameStore = create<Store>()(
         hasSeenWelcome: state.hasSeenWelcome,
         tutorialEnabled: state.tutorialEnabled,
         hasPlayedFirstGame: state.hasPlayedFirstGame,
+        shopItems: state.shopItems,
+        gameConfig: state.gameConfig,
         avatarId: state.avatarId,
         borderId: state.borderId,
         unlockedAvatars: state.unlockedAvatars,

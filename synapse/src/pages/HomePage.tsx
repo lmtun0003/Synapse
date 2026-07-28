@@ -267,6 +267,7 @@ export function HomePage() {
           { icon: '🏆', label: 'Leaderboard', href: '/leaderboard' },
           { icon: '🛍️', label: 'Shop', href: '/shop' },
           { icon: '⚙️', label: 'Settings', href: '/settings' },
+          { icon: '🔧', label: 'Admin', href: '/admin' },
         ].map(item => (
           <button
             key={item.label}

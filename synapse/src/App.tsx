@@ -14,6 +14,7 @@ import { ShopPage } from '@/pages/ShopPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { AchievementsPage } from '@/pages/AchievementsPage'
 import { RankedLeaderboardPage } from '@/pages/RankedLeaderboardPage'
+import { AdminPage } from '@/pages/AdminPage'
 import { WelcomeModal } from '@/components/ui/WelcomeModal'
 import { useGameStore } from '@/store/gameStore'
 
@@ -58,6 +59,8 @@ function AnimatedRoutes() {
         <Route path="/settings" element={<PageShell><SettingsPage /></PageShell>} />
         <Route path="/achievements" element={<PageShell><AchievementsPage /></PageShell>} />
         <Route path="/ranked/leaderboard" element={<PageShell><RankedLeaderboardPage /></PageShell>} />
+        {/* Admin panel — no PageShell so it has its own full-screen layout */}
+        <Route path="/admin" element={<AdminPage />} />
       </Routes>
     </AnimatePresence>
   )

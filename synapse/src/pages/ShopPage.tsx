@@ -5,69 +5,7 @@ import { GlassCard } from '@/components/ui/GlassCard'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { useGameStore } from '@/store/gameStore'
-
-const SHOP_ITEMS = [
-  {
-    id: 'theme_ocean',
-    name: 'Ocean Depths',
-    type: 'Theme',
-    description: 'Deep ocean colour palette with wave animations',
-    sparkCost: 250,
-    preview: '🌊',
-    new: true,
-    limited: false,
-  },
-  {
-    id: 'theme_fire',
-    name: 'Inferno',
-    type: 'Theme',
-    description: 'Warm fiery tones with ember particle effects',
-    sparkCost: 250,
-    preview: '🔥',
-    new: false,
-    limited: true,
-  },
-  {
-    id: 'board_crystal',
-    name: 'Crystal Grid',
-    type: 'Board Skin',
-    description: 'Crystalline board with prismatic light refractions',
-    prismCost: 120,
-    preview: '💎',
-    new: false,
-    limited: false,
-  },
-  {
-    id: 'board_neon',
-    name: 'Neon Circuit',
-    type: 'Board Skin',
-    description: 'Cyberpunk-inspired neon circuit board aesthetic',
-    sparkCost: 350,
-    preview: '⚡',
-    new: true,
-    limited: false,
-  },
-  {
-    id: 'icon_phoenix',
-    name: 'Phoenix',
-    type: 'Avatar Icon',
-    description: 'Animated phoenix avatar with fire trail',
-    prismCost: 80,
-    preview: '🦅',
-    new: false,
-    limited: false,
-  },
-  {
-    id: 'anim_supernova',
-    name: 'Supernova',
-    type: 'Victory',
-    description: 'Explosive star burst victory animation',
-    sparkCost: 200,
-    preview: '✨',
-    new: false,
-    limited: true,
-  },
-]
+import { COSMETIC_TYPE_LABELS } from '@/data/shopItems'
 
 const BATTLE_PASS_TIERS = [
   { level: 1, free: { type: 'sparks', amount: 50 }, premium: { type: 'theme', name: 'Eclipse' } },
@@ -80,16 +18,18 @@ const BATTLE_PASS_TIERS = [
 
 export function ShopPage() {
   const navigate = useNavigate()
-  const { player } = useGameStore()
+  const { player, shopItems } = useGameStore()
   const [tab, setTab] = useState<'shop' | 'battlepass'>('shop')
   const [filter, setFilter] = useState('All')
 
-  const filters = ['All', 'Themes', 'Board Skins', 'Icons', 'Animations', 'Limited']
+  const filters = ['All', 'theme', 'board_skin', 'icon', 'victory', 'cursor', 'background', 'Limited']
+  const filterLabel: Record<string, string> = { All: 'All', theme: 'Themes', board_skin: 'Board Skins', icon: 'Icons', victory: 'Victory', cursor: 'Cursors', background: 'Backgrounds', Limited: 'Limited' }
+
   const filtered = filter === 'All'
-    ? SHOP_ITEMS
+    ? shopItems
     : filter === 'Limited'
-    ? SHOP_ITEMS.filter(i => i.limited)
-    : SHOP_ITEMS.filter(i => i.type === filter.slice(0, -1))
+    ? shopItems.filter(i => i.limited)
+    : shopItems.filter(i => i.type === filter)
 
   return (
     <div className="min-h-screen flex flex-col max-w-md mx-auto px-4 py-6">
@@ -167,7 +107,7 @@ export function ShopPage() {
                     : 'glass border-white/8 text-white/40 hover:text-white/70',
                 ].join(' ')}
               >
-                {f}
+                {filterLabel[f] ?? f}
               </button>
             ))}
           </div>
@@ -194,7 +134,7 @@ export function ShopPage() {
                 {/* Info */}
                 <div className="p-3">
                   <div className="text-white text-sm font-semibold truncate">{item.name}</div>
-                  <div className="text-white/30 text-[11px] mb-2 truncate">{item.type}</div>
+                  <div className="text-white/30 text-[11px] mb-2 truncate">{COSMETIC_TYPE_LABELS[item.type] ?? item.type}</div>
                   <div className="flex items-center justify-between">
                     {item.sparkCost ? (
                       <span className="text-amber-400 text-sm font-semibold">✦ {item.sparkCost}</span>
