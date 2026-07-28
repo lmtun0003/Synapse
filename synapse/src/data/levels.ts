@@ -347,90 +347,333 @@ for (let i = 1; i <= 20; i++) {
   })
 }
 
-// ─── Worlds Data ──────────────────────────────────────────────────────────────
+// ─── World 6: Convergence (mixed: rotation + mirrors) ─────────────────────────
+
+const world6Puzzles: Puzzle[] = Array.from({ length: 15 }, (_, i) => {
+  const levelNum = 101 + i
+  const rows = 4 + Math.floor(i / 5)
+  const cols = 4 + Math.floor(i / 4)
+  return {
+    id: `w6_l${levelNum}`,
+    title: `Convergence ${i + 1}`,
+    description: 'Combine rotation and mirrors to find the perfect path.',
+    rows, cols,
+    mechanics: ['basic', 'rotator', 'mirror'],
+    targetMoves: { perfect: 5 + i, gold: 7 + i, silver: 10 + i, bronze: 15 + i },
+    connections: [],
+    grid: (() => {
+      const nodes: GridNode[] = []
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const isSource = r === 0 && c === 0
+          const isTarget = (r === rows - 1 && c === cols - 1) || (r === 0 && c === cols - 1)
+          const isMirror = r === Math.floor(rows / 2) && c === Math.floor(cols / 2)
+          const isRotator = r === 1 && c === 1 && !isSource && !isTarget
+          const conns: Direction[] = []
+          if (r > 0) conns.push('N')
+          if (r < rows - 1) conns.push('S')
+          if (c > 0) conns.push('W')
+          if (c < cols - 1) conns.push('E')
+          nodes.push({
+            id: `w6_l${levelNum}_${r}_${c}`,
+            row: r, col: c,
+            type: (isSource ? 'source' : isTarget ? 'target' : isMirror ? 'mirror' : isRotator ? 'rotator' : 'basic') as NodeType,
+            state: (isSource ? 'active' : 'inactive') as NodeState,
+            rotation: isMirror ? 45 : isRotator ? (i % 4) * 90 : 0,
+            connections: isMirror ? ['N', 'E'] : conns,
+          })
+        }
+      }
+      return nodes
+    })(),
+  }
+})
+
+// ─── World 7: Paradox (mixed: gravity + teleport + inverter) ──────────────────
+
+const world7Puzzles: Puzzle[] = Array.from({ length: 15 }, (_, i) => {
+  const levelNum = 116 + i
+  const rows = 5 + Math.floor(i / 5)
+  const cols = 5 + Math.floor(i / 5)
+  const tp1Id = `w7_l${levelNum}_tp1`
+  const tp2Id = `w7_l${levelNum}_tp2`
+  return {
+    id: `w7_l${levelNum}`,
+    title: `Paradox ${i + 1}`,
+    description: 'Signals fall, jump, and invert. Plan every step.',
+    rows, cols,
+    mechanics: ['basic', 'gravity', 'teleport', 'inverter'],
+    targetMoves: { perfect: 6 + i, gold: 9 + i, silver: 13 + i, bronze: 18 + i },
+    connections: [],
+    grid: (() => {
+      const nodes: GridNode[] = []
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const nodeId = `w7_l${levelNum}_${r}_${c}`
+          const isSource = r === 0 && c === 0
+          const isTarget = (r === rows - 1 && c === cols - 1) || (r === rows - 1 && c === 0)
+          const isTp1 = r === 0 && c === Math.floor(cols / 2)
+          const isTp2 = r === rows - 1 && c === Math.floor(cols / 2)
+          const isGravity = r === Math.floor(rows / 2) && c === 1
+          const isInverter = r === Math.floor(rows / 2) && c === cols - 2
+          const conns: Direction[] = []
+          if (r > 0) conns.push('N')
+          if (r < rows - 1) conns.push('S')
+          if (c > 0) conns.push('W')
+          if (c < cols - 1) conns.push('E')
+          const node: GridNode = {
+            id: isTp1 ? tp1Id : isTp2 ? tp2Id : nodeId,
+            row: r, col: c,
+            type: (isSource ? 'source' : isTarget ? 'target' : isTp1 || isTp2 ? 'teleport' : isGravity ? 'gravity' : isInverter ? 'inverter' : 'basic') as NodeType,
+            state: (isSource ? 'active' : 'inactive') as NodeState,
+            rotation: 0, connections: conns,
+          }
+          if (isTp1) node.teleportPair = tp2Id
+          if (isTp2) node.teleportPair = tp1Id
+          nodes.push(node)
+        }
+      }
+      return nodes
+    })(),
+  }
+})
+
+// ─── World 8: Cascade (all mechanics mixed, 6×6 grids) ──────────────────────
+
+const world8Puzzles: Puzzle[] = Array.from({ length: 15 }, (_, i) => {
+  const levelNum = 131 + i
+  const size = 6 + Math.floor(i / 8)
+  return {
+    id: `w8_l${levelNum}`,
+    title: `Cascade ${i + 1}`,
+    description: 'Every mechanic at play. The board is against you.',
+    rows: size, cols: size,
+    mechanics: ['basic', 'rotator', 'mirror', 'gravity', 'teleport'],
+    targetMoves: { perfect: 8 + i, gold: 12 + i, silver: 17 + i, bronze: 24 + i },
+    connections: [],
+    grid: (() => {
+      const nodes: GridNode[] = []
+      const tp1Id = `w8_l${levelNum}_tp1`
+      const tp2Id = `w8_l${levelNum}_tp2`
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const id = r === 1 && c === 1 ? tp1Id : r === size-2 && c === size-2 ? tp2Id : `w8_l${levelNum}_${r}_${c}`
+          const isSource = r === 0 && c === 0
+          const isTarget = (r === 0 && c === size-1) || (r === size-1 && c === 0) || (r === size-1 && c === size-1)
+          const isTp1 = r === 1 && c === 1
+          const isTp2 = r === size-2 && c === size-2
+          const isMirror = r === Math.floor(size/2) && c === Math.floor(size/2)
+          const isGravity = r === 2 && c === size-2
+          const conns: Direction[] = []
+          if (r > 0) conns.push('N')
+          if (r < size-1) conns.push('S')
+          if (c > 0) conns.push('W')
+          if (c < size-1) conns.push('E')
+          const node: GridNode = {
+            id,
+            row: r, col: c,
+            type: (isSource ? 'source' : isTarget ? 'target' : isTp1||isTp2 ? 'teleport' : isMirror ? 'mirror' : isGravity ? 'gravity' : 'basic') as NodeType,
+            state: (isSource ? 'active' : 'inactive') as NodeState,
+            rotation: isMirror ? 45 : 0,
+            connections: isMirror ? ['N', 'E'] : conns,
+          }
+          if (isTp1) node.teleportPair = tp2Id
+          if (isTp2) node.teleportPair = tp1Id
+          nodes.push(node)
+        }
+      }
+      return nodes
+    })(),
+  }
+})
+
+// ─── World 9: Nexus (all mechanics, asymmetric grids) ────────────────────────
+
+const world9Puzzles: Puzzle[] = Array.from({ length: 15 }, (_, i) => {
+  const levelNum = 146 + i
+  const rows = 5 + Math.floor(i / 4)
+  const cols = 7 + Math.floor(i / 4)
+  return {
+    id: `w9_l${levelNum}`,
+    title: `Nexus ${i + 1}`,
+    description: 'Wide rectangular grids. Signal must travel far.',
+    rows, cols,
+    mechanics: ['basic', 'relay', 'mirror', 'rotator', 'gravity'],
+    targetMoves: { perfect: 10 + i, gold: 14 + i, silver: 19 + i, bronze: 27 + i },
+    connections: [],
+    grid: (() => {
+      const nodes: GridNode[] = []
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const isSource = r === Math.floor(rows/2) && c === 0
+          const isTarget = (r === 0 && c === cols-1) || (r === rows-1 && c === cols-1)
+          const isMirror = (r + c) % 7 === 3 && !isSource && !isTarget
+          const isRelay = (r + c) % 5 === 0 && !isSource && !isTarget && !isMirror
+          const conns: Direction[] = []
+          if (r > 0) conns.push('N')
+          if (r < rows-1) conns.push('S')
+          if (c > 0) conns.push('W')
+          if (c < cols-1) conns.push('E')
+          nodes.push({
+            id: `w9_l${levelNum}_${r}_${c}`,
+            row: r, col: c,
+            type: (isSource ? 'source' : isTarget ? 'target' : isMirror ? 'mirror' : isRelay ? 'relay' : 'basic') as NodeType,
+            state: (isSource ? 'active' : 'inactive') as NodeState,
+            rotation: isMirror ? 45 : 0,
+            connections: isMirror ? ['N', 'E'] : conns,
+          })
+        }
+      }
+      return nodes
+    })(),
+  }
+})
+
+// ─── World 10: Synthesis (maximum difficulty mixed, 7×7+) ────────────────────
+
+const world10Puzzles: Puzzle[] = Array.from({ length: 15 }, (_, i) => {
+  const levelNum = 161 + i
+  const rows = 6 + Math.floor(i / 3)
+  const cols = 6 + Math.floor(i / 3)
+  const tp1Id = `w10_l${levelNum}_tp1`
+  const tp2Id = `w10_l${levelNum}_tp2`
+  return {
+    id: `w10_l${levelNum}`,
+    title: `Synthesis ${i + 1}`,
+    description: 'The final test before the Elite. Every mechanic, maximum grid.',
+    rows, cols,
+    mechanics: ['basic', 'rotator', 'mirror', 'gravity', 'teleport', 'inverter', 'relay'],
+    targetMoves: { perfect: 12 + i, gold: 17 + i, silver: 23 + i, bronze: 32 + i },
+    connections: [],
+    grid: (() => {
+      const nodes: GridNode[] = []
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const nodeId = `w10_l${levelNum}_${r}_${c}`
+          const isSource = r === 0 && c === 0
+          const isTarget = (r === rows-1 && c === cols-1) || (r === 0 && c === cols-1) || (r === rows-1 && c === 0)
+          const isTp1 = r === 1 && c === Math.floor(cols/2)
+          const isTp2 = r === rows-2 && c === Math.floor(cols/2)
+          const isMirror = r === Math.floor(rows/2) && c === Math.floor(cols*0.3)
+          const isGravity = r === 2 && c === cols-2
+          const isInverter = r === rows-3 && c === 2
+          const isRotator = r === Math.floor(rows/2) && c === cols-2
+          const conns: Direction[] = []
+          if (r > 0) conns.push('N')
+          if (r < rows-1) conns.push('S')
+          if (c > 0) conns.push('W')
+          if (c < cols-1) conns.push('E')
+          const id = isTp1 ? tp1Id : isTp2 ? tp2Id : nodeId
+          const node: GridNode = {
+            id,
+            row: r, col: c,
+            type: (isSource ? 'source' : isTarget ? 'target' : isTp1||isTp2 ? 'teleport' : isMirror ? 'mirror' : isGravity ? 'gravity' : isInverter ? 'inverter' : isRotator ? 'rotator' : 'basic') as NodeType,
+            state: (isSource ? 'active' : 'inactive') as NodeState,
+            rotation: isMirror ? 45 : isRotator ? (i % 4) * 90 : 0,
+            connections: isMirror ? ['N', 'E'] : conns,
+          }
+          if (isTp1) node.teleportPair = tp2Id
+          if (isTp2) node.teleportPair = tp1Id
+          nodes.push(node)
+        }
+      }
+      return nodes
+    })(),
+  }
+})
+
+// ─── ELITE: Grandmaster Campaign (10 stages, 8×8–10×10, all mechanics) ───────
+
+const elitePuzzles: Puzzle[] = Array.from({ length: 10 }, (_, i) => {
+  const rows = 8 + Math.floor(i / 3)
+  const cols = 8 + Math.floor(i / 3)
+  const tp1Id = `elite_l${i+1}_tp1`
+  const tp2Id = `elite_l${i+1}_tp2`
+  const tp3Id = `elite_l${i+1}_tp3`
+  const tp4Id = `elite_l${i+1}_tp4`
+  return {
+    id: `elite_l${i + 1}`,
+    title: `Grandmaster ${romanNumeral(i + 1)}`,
+    description: i < 5
+      ? 'This is the Elite Campaign. Only the top 5% will complete it.'
+      : 'The signals converge. Every node matters. No room for error.',
+    rows, cols,
+    mechanics: ['basic', 'source', 'target', 'relay', 'mirror', 'rotator', 'teleport', 'gravity', 'inverter'],
+    targetMoves: { perfect: 15 + i * 3, gold: 20 + i * 4, silver: 28 + i * 5, bronze: 40 + i * 6 },
+    connections: [],
+    grid: (() => {
+      const nodes: GridNode[] = []
+      const mid = Math.floor(cols / 2)
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const nodeId = `elite_l${i+1}_${r}_${c}`
+          const isSource = (r === 0 && c === 0) || (r === rows-1 && c === cols-1)
+          const isTarget = (r === 0 && c === cols-1) || (r === rows-1 && c === 0) || (r === Math.floor(rows/2) && c === mid)
+          const isTp1 = r === 1 && c === 2
+          const isTp2 = r === rows-2 && c === cols-3
+          const isTp3 = r === 1 && c === cols-2
+          const isTp4 = r === rows-2 && c === 1
+          const isMirror1 = r === 2 && c === mid
+          const isMirror2 = r === rows-3 && c === mid
+          const isGravity = r === 3 && c === 1
+          const isInverter = r === rows-4 && c === cols-2
+          const isRotator = r === Math.floor(rows/2) && c === 2
+          const isLocked = (r === 2 && c === 3) || (r === rows-3 && c === cols-4)
+          const conns: Direction[] = []
+          if (r > 0) conns.push('N')
+          if (r < rows-1) conns.push('S')
+          if (c > 0) conns.push('W')
+          if (c < cols-1) conns.push('E')
+          const id = isTp1 ? tp1Id : isTp2 ? tp2Id : isTp3 ? tp3Id : isTp4 ? tp4Id : nodeId
+          const node: GridNode = {
+            id,
+            row: r, col: c,
+            type: (isSource ? 'source' : isTarget ? 'target' : isTp1||isTp2 ? 'teleport' : isTp3||isTp4 ? 'teleport' : isMirror1||isMirror2 ? 'mirror' : isGravity ? 'gravity' : isInverter ? 'inverter' : isRotator ? 'rotator' : isLocked ? 'locked' : 'basic') as NodeType,
+            state: (isSource ? 'active' : isLocked ? 'locked' : 'inactive') as NodeState,
+            rotation: (isMirror1||isMirror2) ? 45 : isRotator ? (i % 4) * 90 : 0,
+            connections: (isMirror1||isMirror2) ? ['N', 'E'] : conns,
+          }
+          if (isTp1) node.teleportPair = tp2Id
+          if (isTp2) node.teleportPair = tp1Id
+          if (isTp3) node.teleportPair = tp4Id
+          if (isTp4) node.teleportPair = tp3Id
+          nodes.push(node)
+        }
+      }
+      return nodes
+    })(),
+  }
+})
+
+function romanNumeral(n: number): string {
+  const r = ['I','II','III','IV','V','VI','VII','VIII','IX','X']
+  return r[n - 1] ?? String(n)
+}
 
 export const WORLDS: World[] = [
+  { id: 'world1', name: 'Awakening',   description: 'Learn the fundamentals of signal propagation.', mechanic: 'Basic Activation', color: '#3B82F6', glowColor: 'rgba(59,130,246,0.4)', unlocked: true,  completed: false, levels: world1Puzzles.map((puzzle, i) => ({ levelNumber: i+1,   puzzle, worldId: 'world1', locked: i > 0, completed: false })) },
+  { id: 'world2', name: 'Rotation',    description: 'Harness rotation to redirect the flow.',        mechanic: 'Rotators',        color: '#8B5CF6', glowColor: 'rgba(139,92,246,0.4)', unlocked: false, completed: false, levels: world2Puzzles.map((puzzle, i) => ({ levelNumber: 21+i,   puzzle, worldId: 'world2', locked: true, completed: false })) },
+  { id: 'world3', name: 'Reflection',  description: 'Bend signals with precision mirrors.',          mechanic: 'Mirrors',         color: '#10B981', glowColor: 'rgba(16,185,129,0.4)', unlocked: false, completed: false, levels: world3Puzzles.map((puzzle, i) => ({ levelNumber: 41+i,   puzzle, worldId: 'world3', locked: true, completed: false })) },
+  { id: 'world4', name: 'Gravity',     description: 'Think vertically — signals obey gravity.',      mechanic: 'Gravity Wells',   color: '#F59E0B', glowColor: 'rgba(245,158,11,0.4)', unlocked: false, completed: false, levels: world4Puzzles.map((puzzle, i) => ({ levelNumber: 61+i,   puzzle, worldId: 'world4', locked: true, completed: false })) },
+  { id: 'world5', name: 'Quantum',     description: 'Jump across space with quantum teleporters.',   mechanic: 'Teleporters',     color: '#EC4899', glowColor: 'rgba(236,72,153,0.4)', unlocked: false, completed: false, levels: world5Puzzles.map((puzzle, i) => ({ levelNumber: 81+i,   puzzle, worldId: 'world5', locked: true, completed: false })) },
+  { id: 'world6', name: 'Convergence', description: 'Rotation meets reflection. Adapt.',             mechanic: 'Rotation + Mirrors', color: '#6366F1', glowColor: 'rgba(99,102,241,0.4)', unlocked: false, completed: false, levels: world6Puzzles.map((puzzle, i) => ({ levelNumber: 101+i,  puzzle, worldId: 'world6', locked: true, completed: false })) },
+  { id: 'world7', name: 'Paradox',     description: 'Fall. Jump. Invert. Nothing is certain.',       mechanic: 'Gravity + Teleport + Inverter', color: '#EF4444', glowColor: 'rgba(239,68,68,0.4)', unlocked: false, completed: false, levels: world7Puzzles.map((puzzle, i) => ({ levelNumber: 116+i, puzzle, worldId: 'world7', locked: true, completed: false })) },
+  { id: 'world8', name: 'Cascade',     description: 'All mechanics flow at once.',                   mechanic: 'Full Mix',        color: '#06B6D4', glowColor: 'rgba(6,182,212,0.4)',  unlocked: false, completed: false, levels: world8Puzzles.map((puzzle, i) => ({ levelNumber: 131+i, puzzle, worldId: 'world8', locked: true, completed: false })) },
+  { id: 'world9', name: 'Nexus',       description: 'Wide grids. Long signals. Precise routing.',    mechanic: 'Relay + Mix',     color: '#A78BFA', glowColor: 'rgba(167,139,250,0.4)', unlocked: false, completed: false, levels: world9Puzzles.map((puzzle, i) => ({ levelNumber: 146+i, puzzle, worldId: 'world9', locked: true, completed: false })) },
+  { id: 'world10',name: 'Synthesis',   description: 'The final test before the Elite.',              mechanic: 'Master Mix',      color: '#F59E0B', glowColor: 'rgba(245,158,11,0.4)', unlocked: false, completed: false, levels: world10Puzzles.map((puzzle, i) => ({ levelNumber: 161+i, puzzle, worldId: 'world10', locked: true, completed: false })) },
   {
-    id: 'world1',
-    name: 'Awakening',
-    description: 'Learn the fundamentals of signal propagation.',
-    mechanic: 'Basic Activation',
-    color: '#3B82F6',
-    glowColor: 'rgba(59, 130, 246, 0.4)',
-    unlocked: true,
-    completed: false,
-    levels: world1Puzzles.map((puzzle, i) => ({
-      levelNumber: i + 1,
-      puzzle,
-      worldId: 'world1',
-      locked: i > 0,
-      completed: false,
-    })),
-  },
-  {
-    id: 'world2',
-    name: 'Rotation',
-    description: 'Harness rotation to redirect the flow.',
-    mechanic: 'Rotators',
-    color: '#8B5CF6',
-    glowColor: 'rgba(139, 92, 246, 0.4)',
-    unlocked: false,
-    completed: false,
-    levels: world2Puzzles.map((puzzle, i) => ({
-      levelNumber: 21 + i,
-      puzzle,
-      worldId: 'world2',
-      locked: true,
-      completed: false,
-    })),
-  },
-  {
-    id: 'world3',
-    name: 'Reflection',
-    description: 'Bend signals with precision mirrors.',
-    mechanic: 'Mirrors',
-    color: '#10B981',
-    glowColor: 'rgba(16, 185, 129, 0.4)',
-    unlocked: false,
-    completed: false,
-    levels: world3Puzzles.map((puzzle, i) => ({
-      levelNumber: 41 + i,
-      puzzle,
-      worldId: 'world3',
-      locked: true,
-      completed: false,
-    })),
-  },
-  {
-    id: 'world4',
-    name: 'Gravity',
-    description: 'Think vertically — signals obey gravity.',
-    mechanic: 'Gravity Wells',
+    id: 'elite',
+    name: 'Elite: Grandmaster',
+    description: 'Only the top 5% will complete all 10 stages. Proceed carefully.',
+    mechanic: 'All Nodes · Maximum Difficulty',
     color: '#F59E0B',
-    glowColor: 'rgba(245, 158, 11, 0.4)',
+    glowColor: 'rgba(245,158,11,0.6)',
     unlocked: false,
     completed: false,
-    levels: world4Puzzles.map((puzzle, i) => ({
-      levelNumber: 61 + i,
+    levels: elitePuzzles.map((puzzle, i) => ({
+      levelNumber: 200 + i,
       puzzle,
-      worldId: 'world4',
-      locked: true,
-      completed: false,
-    })),
-  },
-  {
-    id: 'world5',
-    name: 'Quantum',
-    description: 'Jump across space with quantum teleporters.',
-    mechanic: 'Teleporters',
-    color: '#EC4899',
-    glowColor: 'rgba(236, 72, 153, 0.4)',
-    unlocked: false,
-    completed: false,
-    levels: world5Puzzles.map((puzzle, i) => ({
-      levelNumber: 81 + i,
-      puzzle,
-      worldId: 'world5',
+      worldId: 'elite',
       locked: true,
       completed: false,
     })),

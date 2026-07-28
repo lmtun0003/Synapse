@@ -12,6 +12,8 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { LeaderboardPage } from '@/pages/LeaderboardPage'
 import { ShopPage } from '@/pages/ShopPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { AchievementsPage } from '@/pages/AchievementsPage'
+import { RankedLeaderboardPage } from '@/pages/RankedLeaderboardPage'
 import { WelcomeModal } from '@/components/ui/WelcomeModal'
 import { useGameStore } from '@/store/gameStore'
 
@@ -54,6 +56,8 @@ function AnimatedRoutes() {
         <Route path="/leaderboard" element={<PageShell><LeaderboardPage /></PageShell>} />
         <Route path="/shop" element={<PageShell><ShopPage /></PageShell>} />
         <Route path="/settings" element={<PageShell><SettingsPage /></PageShell>} />
+        <Route path="/achievements" element={<PageShell><AchievementsPage /></PageShell>} />
+        <Route path="/ranked/leaderboard" element={<PageShell><RankedLeaderboardPage /></PageShell>} />
       </Routes>
     </AnimatePresence>
   )

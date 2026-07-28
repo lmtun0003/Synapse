@@ -23,6 +23,7 @@ import {
   buildLevelResult,
 } from '@/engine/gameEngine'
 import { WORLDS } from '@/data/levels'
+import { ACHIEVEMENTS as ACHIEVEMENTS_DATA, TIER_DEFS as ACHIEVEMENT_TIER_DEFS } from '@/data/achievements'
 
 // ─── Game Slice ──────────────────────────────────────────────────────────────
 
@@ -63,10 +64,23 @@ interface ProgressSlice {
 
 interface PlayerSlice {
   player: PlayerProfile
+  avatarId: string
+  borderId: string
+  unlockedAvatars: string[]
+  unlockedBorders: string[]
+  playerAchievements: Record<string, { currentTier: number; currentProgress: number }>
+  pinnedAchievements: string[]
+
   updatePlayer: (partial: Partial<PlayerProfile>) => void
   addXP: (amount: number) => void
   addSparks: (amount: number) => void
   updateStreak: () => void
+  setAvatar: (id: string) => void
+  setBorder: (id: string) => void
+  unlockAvatar: (id: string) => void
+  unlockBorder: (id: string) => void
+  updateAchievementProgress: (id: string, value: number) => void
+  pinAchievement: (id: string) => void
 }
 
 // ─── Community Slice ─────────────────────────────────────────────────────────
@@ -363,6 +377,12 @@ export const useGameStore = create<Store>()(
 
       // ── Player ──────────────────────────────────────────────────────────
       player: DEFAULT_PLAYER,
+      avatarId: 'nebula',
+      borderId: 'none',
+      unlockedAvatars: ['nebula'],
+      unlockedBorders: ['none'],
+      playerAchievements: {},
+      pinnedAchievements: [],
 
       updatePlayer: (partial) => set(s => ({ player: { ...s.player, ...partial } })),
 
@@ -389,6 +409,36 @@ export const useGameStore = create<Store>()(
           },
         })
       },
+
+      setAvatar: (id) => set({ avatarId: id }),
+      setBorder: (id) => set({ borderId: id }),
+      unlockAvatar: (id) => set(s => ({ unlockedAvatars: s.unlockedAvatars.includes(id) ? s.unlockedAvatars : [...s.unlockedAvatars, id] })),
+      unlockBorder: (id) => set(s => ({ unlockedBorders: s.unlockedBorders.includes(id) ? s.unlockedBorders : [...s.unlockedBorders, id] })),
+
+      updateAchievementProgress: (id, value) => {
+        const { playerAchievements } = get()
+        const current = playerAchievements[id] ?? { currentTier: 0, currentProgress: 0 }
+        const ach = ACHIEVEMENTS_DATA.find(a => a.id === id)
+        if (!ach) return
+        let newTier = current.currentTier
+        for (let t = current.currentTier; t < ach.tiers.length; t++) {
+          if (value >= ach.tiers[t].target) newTier = t + 1
+          else break
+        }
+        const tierGained = newTier - current.currentTier
+        if (tierGained > 0) {
+          for (let t = current.currentTier; t < newTier; t++) {
+            get().addSparks(ACHIEVEMENT_TIER_DEFS[t]?.sparkReward ?? 10)
+          }
+        }
+        set({ playerAchievements: { ...playerAchievements, [id]: { currentTier: newTier, currentProgress: value } } })
+      },
+
+      pinAchievement: (id) => set(s => ({
+        pinnedAchievements: s.pinnedAchievements.includes(id)
+          ? s.pinnedAchievements.filter(a => a !== id)
+          : [...s.pinnedAchievements.slice(0, 3), id],
+      })),
 
       // ── Community ────────────────────────────────────────────────────────
       communityPuzzles: SEED_COMMUNITY_PUZZLES,
@@ -491,6 +541,12 @@ export const useGameStore = create<Store>()(
         hasSeenWelcome: state.hasSeenWelcome,
         tutorialEnabled: state.tutorialEnabled,
         hasPlayedFirstGame: state.hasPlayedFirstGame,
+        avatarId: state.avatarId,
+        borderId: state.borderId,
+        unlockedAvatars: state.unlockedAvatars,
+        unlockedBorders: state.unlockedBorders,
+        playerAchievements: state.playerAchievements,
+        pinnedAchievements: state.pinnedAchievements,
       }),
     }
   )

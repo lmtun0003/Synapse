@@ -161,9 +161,14 @@ export function RankedPage() {
         </div>
       </GlassCard>
 
-      <Button variant="primary" size="lg" className="w-full" glow>
-        🏆 Find Match
-      </Button>
+      <div className="flex gap-2.5">
+        <Button variant="primary" size="lg" className="flex-1" glow>
+          🏆 Find Match
+        </Button>
+        <Button variant="secondary" size="lg" onClick={() => navigate('/ranked/leaderboard')}>
+          Top 100
+        </Button>
+      </div>
     </div>
   )
 }

@@ -6,7 +6,24 @@ import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { useGameStore } from '@/store/gameStore'
+import { ChapterBanner, NodeIntroModal } from '@/components/game/NodeIntroModal'
 import type { World, CampaignLevel } from '@/types/game'
+import type { NodeType } from '@/types/game'
+
+// Which node type is introduced first in each world
+const WORLD_NEW_NODE: Record<string, NodeType> = {
+  world1: 'basic',
+  world2: 'rotator',
+  world3: 'mirror',
+  world4: 'gravity',
+  world5: 'teleport',
+  world6: 'mirror',    // mix
+  world7: 'inverter',
+  world8: 'basic',     // all mix
+  world9: 'relay',
+  world10: 'gate_and',
+  elite: 'timed',
+}
 
 function WorldCard({ world, isSelected, onClick }: { world: World; isSelected: boolean; onClick: () => void }) {
   const completed = world.levels.filter(l => l.completed).length
@@ -104,14 +121,50 @@ export function CampaignPage() {
   const navigate = useNavigate()
   const { worlds, setCurrentLevel, startGame } = useGameStore()
   const [selectedWorldIdx, setSelectedWorldIdx] = useState(0)
+  const [showChapterBanner, setShowChapterBanner] = useState(false)
+  const [showNodeIntro, setShowNodeIntro] = useState(false)
+  const [pendingLevel, setPendingLevel] = useState<CampaignLevel | null>(null)
   const selectedWorld = worlds[selectedWorldIdx]
+
+  const handleWorldSelect = (i: number) => {
+    if (!worlds[i].unlocked) return
+    setSelectedWorldIdx(i)
+  }
 
   const handleLevelClick = (level: CampaignLevel) => {
     if (level.locked) return
+    setPendingLevel(level)
+    // Show chapter banner when entering a new world at level 1 of that world
+    if (level.levelNumber === selectedWorld.levels[0]?.levelNumber) {
+      setShowChapterBanner(true)
+    } else {
+      launchLevel(level)
+    }
+  }
+
+  const launchLevel = (level: CampaignLevel) => {
     setCurrentLevel(selectedWorld.id, level.levelNumber)
     startGame(level.puzzle, 'campaign')
     navigate('/play')
   }
+
+  const handleChapterContinue = () => {
+    setShowChapterBanner(false)
+    // Show node intro for first level of a new world (if it introduces a new node)
+    const newNode = WORLD_NEW_NODE[selectedWorld.id]
+    if (newNode && selectedWorld.levels[0]?.levelNumber === pendingLevel?.levelNumber) {
+      setShowNodeIntro(true)
+    } else if (pendingLevel) {
+      launchLevel(pendingLevel)
+    }
+  }
+
+  const handleNodeIntroDone = () => {
+    setShowNodeIntro(false)
+    if (pendingLevel) launchLevel(pendingLevel)
+  }
+
+  const worldNumber = selectedWorldIdx + 1
 
   const completed = selectedWorld.levels.filter(l => l.completed).length
   const total = selectedWorld.levels.length
@@ -143,7 +196,7 @@ export function CampaignPage() {
             key={w.id}
             world={w}
             isSelected={i === selectedWorldIdx}
-            onClick={() => w.unlocked && setSelectedWorldIdx(i)}
+            onClick={() => handleWorldSelect(i)}
           />
         ))}
       </div>
@@ -157,16 +210,34 @@ export function CampaignPage() {
           exit={{ opacity: 0, y: -12 }}
           transition={{ duration: 0.25 }}
         >
-          <GlassCard padding="md" rounded="2xl" className="mb-5">
+          <GlassCard padding="md" rounded="2xl" className="mb-5" style={{ borderColor: selectedWorld.id === 'elite' ? 'rgba(245,158,11,0.3)' : undefined }}>
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h2 className="text-white font-bold text-lg">{selectedWorld.name}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-white font-bold text-lg">{selectedWorld.name}</h2>
+                  {selectedWorld.id === 'elite' && <Badge variant="amber" size="xs" glow>Elite 👑</Badge>}
+                </div>
                 <p className="text-white/40 text-xs">{selectedWorld.description}</p>
               </div>
-              <Badge variant="blue" size="sm">{selectedWorld.mechanic}</Badge>
+              <Badge variant={selectedWorld.id === 'elite' ? 'amber' : 'blue'} size="xs">{WORLD_NEW_NODE[selectedWorld.id] ? `✦ ${selectedWorld.mechanic}` : selectedWorld.mechanic}</Badge>
             </div>
-            <ProgressBar value={completed} max={total} color="blue" height="sm" glow animated label={`${completed}/${total} Levels`} />
+            <ProgressBar value={completed} max={total} color={selectedWorld.id === 'elite' ? 'amber' : 'blue'} height="sm" glow animated label={`${completed}/${total} Levels`} />
+            {/* Chapter label */}
+            <div className="mt-2 text-white/25 text-xs">Chapter {worldNumber} of {worlds.length}</div>
           </GlassCard>
+
+          {/* Elite warning */}
+          {selectedWorld.id === 'elite' && (
+            <div className="glass rounded-xl p-3 mb-4 border border-amber-500/20 bg-amber-500/5">
+              <div className="flex items-start gap-2">
+                <span className="text-amber-400 text-sm">⚠️</span>
+                <div>
+                  <div className="text-amber-300 text-xs font-semibold">Elite Campaign — Top 5% Only</div>
+                  <div className="text-amber-400/60 text-xs mt-0.5">Complete all 10 stages to earn 2,000 Sparks, 200 Prisms, and the exclusive Fire border.</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Level grid */}
           <div className="grid grid-cols-5 gap-2">
@@ -179,6 +250,30 @@ export function CampaignPage() {
             ))}
           </div>
         </motion.div>
+      </AnimatePresence>
+
+      {/* Chapter Banner */}
+      <AnimatePresence>
+        {showChapterBanner && (
+          <ChapterBanner
+            worldNumber={worldNumber}
+            worldName={selectedWorld.name}
+            mechanic={selectedWorld.mechanic}
+            worldColor={selectedWorld.color}
+            onDismiss={handleChapterContinue}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Node Intro Modal */}
+      <AnimatePresence>
+        {showNodeIntro && WORLD_NEW_NODE[selectedWorld.id] && (
+          <NodeIntroModal
+            nodeType={WORLD_NEW_NODE[selectedWorld.id] as NodeType}
+            worldName={selectedWorld.name}
+            onDismiss={handleNodeIntroDone}
+          />
+        )}
       </AnimatePresence>
     </div>
   )
