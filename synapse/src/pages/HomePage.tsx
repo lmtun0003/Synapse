@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { PrismBadge } from '@/components/ui/PrismIcon'
 import { useGameStore } from '@/store/gameStore'
 
 const RANK_COLORS = {
@@ -193,9 +194,15 @@ export function HomePage() {
                 {RANK_ICONS[player.rank]} {player.rank.charAt(0).toUpperCase() + player.rank.slice(1)}
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-right flex flex-col gap-1">
               <div className="text-amber-400 text-xs font-semibold">✦ {player.sparks.toLocaleString()}</div>
-              <div className="text-white/30 text-xs">Sparks</div>
+              <button
+                onClick={() => navigate('/prisms')}
+                className="flex items-center gap-1 text-xs hover:opacity-80 transition-opacity"
+                title="Get Prisms"
+              >
+                <PrismBadge count={player.prisms} size="xs" />
+              </button>
             </div>
           </div>
 
@@ -266,6 +273,7 @@ export function HomePage() {
         {[
           { icon: '🏆', label: 'Leaderboard', href: '/leaderboard' },
           { icon: '🛍️', label: 'Shop', href: '/shop' },
+          { icon: '💎', label: 'Prisms', href: '/prisms' },
           { icon: '⚙️', label: 'Settings', href: '/settings' },
           { icon: '🔧', label: 'Admin', href: '/admin' },
         ].map(item => (

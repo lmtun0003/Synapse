@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { Button } from '@/components/ui/Button'
 import { PlayerAvatar } from '@/components/ui/PlayerAvatar'
+import { PrismBadge } from '@/components/ui/PrismIcon'
 import { useGameStore } from '@/store/gameStore'
 import { AVATARS, BORDERS, RARITY_CONFIG } from '@/data/avatars'
 import { ACHIEVEMENTS, TIER_DEFS, getAchievementProgress } from '@/data/achievements'
@@ -228,9 +229,9 @@ export function ProfilePage() {
               </button>
             </div>
 
-            <div className="text-right flex-shrink-0">
+            <div className="text-right flex-shrink-0 flex flex-col gap-1">
               <div className="text-amber-400 text-sm font-bold">✦ {player.sparks.toLocaleString()}</div>
-              <div className="text-blue-400 text-xs">◈ {player.prisms}</div>
+              <PrismBadge count={player.prisms} size="xs" showButton onBuy={() => navigate('/prisms')} />
             </div>
           </div>
 
