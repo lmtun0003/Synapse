@@ -41,9 +41,11 @@ export function ProfilePage() {
     const current = player.showcasedAchievements
     if (current.includes(id)) {
       player.setShowcase(current.filter((x) => x !== id))
-    } else if (current.length < 3) {
-      player.setShowcase([...current, id])
+      return
     }
+    // Only unlocked achievements can be featured.
+    if ((player.achievementTiers[id] ?? 0) === 0) return
+    if (current.length < 3) player.setShowcase([...current, id])
   }
 
   const regions = COUNTRIES[player.country] ?? []
@@ -228,6 +230,9 @@ function AchievementCard({
               ? `${value}/${nextTier.threshold} → ${tierLabel(claimedTiers + 1)} (+${nextTier.sparks} ✦)`
               : `Maxed · ${value} total`}
           </p>
+          {editing && !unlocked && (
+            <p className="mt-2 text-xs text-faint">Unlock a tier to feature this</p>
+          )}
           {showcased && !editing && (
             <p className="mt-2 text-xs text-[var(--color-accent)]">★ Featured</p>
           )}
