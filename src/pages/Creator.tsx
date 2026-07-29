@@ -78,7 +78,7 @@ export function CreatorPage() {
   const [title, setTitle] = useState('Untitled Signal')
   const [size, setSize] = useState(3)
   const [cells, setCells] = useState<Array<CellDef | null>>(() =>
-    Array.from({ length: 9 }, () => ({ tool: 'basic', active: false }) as CellDef),
+    Array.from({ length: 9 }, () => null),
   )
   const [tool, setTool] = useState<Tool>('basic')
   const [facing, setFacing] = useState<Direction>('N')
@@ -113,7 +113,7 @@ export function CreatorPage() {
 
   const resize = (next: number) => {
     setSize(next)
-    setCells(Array.from({ length: next * next }, () => ({ tool: 'basic', active: false })))
+    setCells(Array.from({ length: next * next }, () => null))
     setCode(null)
     setMessage('')
   }
@@ -276,14 +276,15 @@ export function CreatorPage() {
                     type="button"
                     aria-label={`cell ${i}`}
                     onClick={() => paintCell(i)}
-                    className="relative flex aspect-square items-center justify-center rounded-2xl border border-[var(--color-border)] transition-colors hover:border-[var(--color-accent)]"
+                    className="relative flex aspect-square items-center justify-center rounded-2xl border border-[var(--color-border-strong)] transition-colors hover:border-[var(--color-accent)]"
                     style={{
                       background: cell
                         ? cell.active
                           ? 'rgba(59,130,246,0.35)'
                           : 'var(--color-surface-strong)'
-                        : 'transparent',
-                      opacity: cell ? 1 : 0.45,
+                        : 'var(--color-surface)',
+                      borderStyle: cell ? 'solid' : 'dashed',
+                      opacity: cell ? 1 : 0.8,
                     }}
                   >
                     {cell && (
