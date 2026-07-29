@@ -18,10 +18,8 @@ import {
 import { getLevelById, levelsInChapter } from '@/data/levels'
 import type { MechanicKind, RankTier, RatingTier } from '@/engine/types'
 
-/** Prisms (the premium gem) earned from campaign progress. */
-const CAMPAIGN_CLEAR_PRISMS = 2
-const CAMPAIGN_PERFECT_PRISMS = 3
-const CHAPTER_COMPLETE_PRISMS = 15
+/** Prisms (the premium gem) are awarded once, on finishing a campaign chapter. */
+const CHAPTER_COMPLETE_PRISMS = 10
 
 export interface LevelProgress {
   bestRating: RatingTier
@@ -170,13 +168,11 @@ export const usePlayerStore = create<PlayerState>()(
         const perfectStreak = rating === 'perfect' ? state.perfectStreak + 1 : 0
         const winStreak = state.winStreak + 1
 
-        // Prisms are earned by completing campaign levels for the first time.
+        // Prisms are earned only by finishing a whole campaign chapter (max 10 each).
         const firstClear = !prev
         let prismGain = 0
         let chapterComplete = false
         if (mode === 'campaign' && firstClear) {
-          prismGain += CAMPAIGN_CLEAR_PRISMS
-          if (rating === 'perfect') prismGain += CAMPAIGN_PERFECT_PRISMS
           const level = getLevelById(puzzleId)
           if (level) {
             const chapterLevels = levelsInChapter(level.chapter)
@@ -185,7 +181,7 @@ export const usePlayerStore = create<PlayerState>()(
             ).length
             if (chapterLevels.length > 0 && completedNow === chapterLevels.length) {
               chapterComplete = true
-              prismGain += CHAPTER_COMPLETE_PRISMS
+              prismGain = CHAPTER_COMPLETE_PRISMS
             }
           }
         }

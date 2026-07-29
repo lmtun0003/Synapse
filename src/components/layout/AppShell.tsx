@@ -1,16 +1,18 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import clsx from 'clsx'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { usePlayerStore } from '@/stores/playerStore'
 import { AchievementToast } from '@/components/AchievementToast'
+import { PrismsPurchaseModal } from '@/components/PrismsPurchase'
 
 const NAV = [
   { to: '/', label: 'Home', icon: '◈' },
   { to: '/campaign', label: 'Campaign', icon: '◎' },
   { to: '/daily', label: 'Daily', icon: '✦' },
   { to: '/ranked', label: 'Ranked', icon: '⬡' },
+  { to: '/shop', label: 'Shop', icon: '❖' },
   { to: '/profile', label: 'Profile', icon: '◇' },
 ]
 
@@ -19,6 +21,7 @@ export function AppShell() {
   const theme = useSettingsStore((s) => s.theme)
   const sparks = usePlayerStore((s) => s.sparks)
   const prisms = usePlayerStore((s) => s.prisms)
+  const [prismsOpen, setPrismsOpen] = useState(false)
   const hideNav = location.pathname.startsWith('/play')
 
   useEffect(() => {
@@ -32,6 +35,7 @@ export function AppShell() {
   return (
     <div className="bg-app relative min-h-dvh text-[var(--color-text)]">
       <AchievementToast />
+      <PrismsPurchaseModal open={prismsOpen} onClose={() => setPrismsOpen(false)} />
       {!hideNav && (
         <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 pb-2 pt-6">
           <div className="flex items-baseline gap-3">
@@ -44,10 +48,18 @@ export function AppShell() {
               <span>{sparks}</span>
               <span className="text-faint">Sparks</span>
             </div>
-            <div className="glass flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-muted">
+            <div className="glass flex items-center gap-2 rounded-full py-1.5 pl-3 pr-1.5 text-xs text-muted">
               <span className="text-[var(--color-secondary)]">◆</span>
               <span>{prisms}</span>
               <span className="text-faint">Prisms</span>
+              <button
+                type="button"
+                aria-label="Buy Prisms"
+                onClick={() => setPrismsOpen(true)}
+                className="ml-1 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-border-strong)] text-sm leading-none text-[var(--color-secondary)] transition-colors hover:border-[var(--color-secondary)] hover:bg-[rgba(139,92,246,0.16)]"
+              >
+                +
+              </button>
             </div>
           </div>
         </header>
