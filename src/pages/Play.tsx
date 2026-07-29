@@ -6,7 +6,7 @@ import { MechanicIntro } from '@/components/game/MechanicIntro'
 import { Button } from '@/components/ui/Button'
 import { Pill } from '@/components/ui/Badge'
 import { useGameStore, type GameMode } from '@/stores/gameStore'
-import { usePlayerStore } from '@/stores/playerStore'
+import { usePlayerStore, type SolveReward } from '@/stores/playerStore'
 import { getChapterMeta, getStageInfo, isChapterOpening } from '@/data/levels'
 import { tutorialMechanics } from '@/data/mechanics'
 import type { MechanicKind } from '@/engine/types'
@@ -37,9 +37,11 @@ export function PlayPage() {
 
   const [introMechanics, setIntroMechanics] = useState<MechanicKind[]>([])
   const [legendOpen, setLegendOpen] = useState(false)
+  const [reward, setReward] = useState<SolveReward | null>(null)
 
   useEffect(() => {
     recorded.current = false
+    setReward(null)
     if (mode === 'campaign' && levelId) loadCampaignLevel(levelId)
     else if (mode === 'daily') loadDaily()
     else if (mode === 'endless') loadEndless()
@@ -79,13 +81,14 @@ export function PlayPage() {
     if (!board || board.status !== 'won' || !puzzle || recorded.current) return
     recorded.current = true
     const elapsedMs = startedAt ? performance.now() - startedAt : 0
-    recordSolve({
+    const earned = recordSolve({
       puzzleId: puzzle.id,
       rating: board.rating,
       moves: board.moveCount,
       elapsedMs,
       mode: mode === 'creator' ? 'campaign' : mode,
     })
+    setReward(earned)
   }, [board, puzzle, mode, startedAt, recordSolve])
 
   if (!puzzle || !board) {
@@ -187,6 +190,9 @@ export function PlayPage() {
             rating={board.rating}
             moves={board.moveCount}
             parPerfect={puzzle.par.perfect}
+            sparks={reward?.sparks}
+            prisms={reward?.prisms}
+            chapterComplete={reward?.chapterComplete}
             showNext={mode === 'campaign' || mode === 'endless'}
             onNext={() => {
               if (mode === 'endless') {

@@ -18,6 +18,7 @@ export function AppShell() {
   const location = useLocation()
   const theme = useSettingsStore((s) => s.theme)
   const sparks = usePlayerStore((s) => s.sparks)
+  const prisms = usePlayerStore((s) => s.prisms)
   const hideNav = location.pathname.startsWith('/play')
 
   useEffect(() => {
@@ -37,10 +38,17 @@ export function AppShell() {
             <span className="text-lg font-medium tracking-[0.28em]">SYNAPSE</span>
             <span className="hidden text-xs text-faint sm:inline">Every Move Changes Everything</span>
           </div>
-          <div className="glass flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-muted">
-            <span className="text-[var(--color-accent)]">✦</span>
-            <span>{sparks}</span>
-            <span className="text-faint">Sparks</span>
+          <div className="flex items-center gap-2">
+            <div className="glass flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-muted">
+              <span className="text-[var(--color-accent)]">✦</span>
+              <span>{sparks}</span>
+              <span className="text-faint">Sparks</span>
+            </div>
+            <div className="glass flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-muted">
+              <span className="text-[var(--color-secondary)]">◆</span>
+              <span>{prisms}</span>
+              <span className="text-faint">Prisms</span>
+            </div>
           </div>
         </header>
       )}

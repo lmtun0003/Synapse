@@ -15,7 +15,13 @@ import {
   type PlayerLocation,
   type RewardBundle,
 } from '@/lib/leaderboard'
+import { getLevelById, levelsInChapter } from '@/data/levels'
 import type { MechanicKind, RankTier, RatingTier } from '@/engine/types'
+
+/** Prisms (the premium gem) earned from campaign progress. */
+const CAMPAIGN_CLEAR_PRISMS = 2
+const CAMPAIGN_PERFECT_PRISMS = 3
+const CHAPTER_COMPLETE_PRISMS = 15
 
 export interface LevelProgress {
   bestRating: RatingTier
@@ -36,6 +42,13 @@ export interface SeasonClaim {
   month: string
   total: RewardBundle
   breakdown: { scope: string; rank: number; reward: RewardBundle }[]
+}
+
+/** Currency earned from a single solve, surfaced to the win overlay. */
+export interface SolveReward {
+  sparks: number
+  prisms: number
+  chapterComplete: boolean
 }
 
 interface PlayerState {
@@ -83,7 +96,7 @@ interface PlayerState {
     moves: number
     elapsedMs: number
     mode: 'campaign' | 'daily' | 'endless' | 'ranked' | 'duel'
-  }) => void
+  }) => SolveReward
   purchaseItem: (id: string, currency: 'sparks' | 'prisms', price: number) => boolean
   equipCosmetic: (kind: 'theme' | 'board', id: string) => void
   markMechanicsSeen: (mechanics: MechanicKind[]) => void
@@ -157,6 +170,26 @@ export const usePlayerStore = create<PlayerState>()(
         const perfectStreak = rating === 'perfect' ? state.perfectStreak + 1 : 0
         const winStreak = state.winStreak + 1
 
+        // Prisms are earned by completing campaign levels for the first time.
+        const firstClear = !prev
+        let prismGain = 0
+        let chapterComplete = false
+        if (mode === 'campaign' && firstClear) {
+          prismGain += CAMPAIGN_CLEAR_PRISMS
+          if (rating === 'perfect') prismGain += CAMPAIGN_PERFECT_PRISMS
+          const level = getLevelById(puzzleId)
+          if (level) {
+            const chapterLevels = levelsInChapter(level.chapter)
+            const completedNow = chapterLevels.filter(
+              (l) => l.id === puzzleId || state.levelProgress[l.id],
+            ).length
+            if (chapterLevels.length > 0 && completedNow === chapterLevels.length) {
+              chapterComplete = true
+              prismGain += CHAPTER_COMPLETE_PRISMS
+            }
+          }
+        }
+
         let dailyStreak = state.dailyStreak
         let lastDailyDate = state.lastDailyDate
         if (mode === 'daily') {
@@ -178,6 +211,7 @@ export const usePlayerStore = create<PlayerState>()(
           level,
           title: titleForLevel(level),
           sparks: state.sparks + sparkGain,
+          prisms: state.prisms + prismGain,
           perfectStreak,
           winStreak,
           dailyStreak,
@@ -205,6 +239,7 @@ export const usePlayerStore = create<PlayerState>()(
           },
         })
         get().syncAchievements()
+        return { sparks: sparkGain, prisms: prismGain, chapterComplete }
       },
       purchaseItem: (id, currency, price) => {
         const state = get()
