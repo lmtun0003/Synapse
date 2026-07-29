@@ -1,12 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Board } from '@/components/game/Board'
 import { WinOverlay } from '@/components/game/WinOverlay'
+import { MechanicIntro } from '@/components/game/MechanicIntro'
 import { Button } from '@/components/ui/Button'
 import { Pill } from '@/components/ui/Badge'
 import { useGameStore, type GameMode } from '@/stores/gameStore'
-import { usePlayerStore } from '@/stores/playerStore'
-import { ACHIEVEMENTS } from '@/data/achievements'
+import { usePlayerStore, type SolveReward } from '@/stores/playerStore'
+import { getChapterMeta, getStageInfo, isChapterOpening } from '@/data/levels'
+import { tutorialMechanics } from '@/data/mechanics'
+import type { MechanicKind } from '@/engine/types'
 
 export function PlayPage() {
   const { mode = 'campaign', levelId } = useParams<{ mode: GameMode; levelId?: string }>()
@@ -28,18 +31,32 @@ export function PlayPage() {
     tickOpponent,
   } = useGameStore()
   const recordSolve = usePlayerStore((s) => s.recordSolve)
-  const unlockAchievement = usePlayerStore((s) => s.unlockAchievement)
+  const markMechanicsSeen = usePlayerStore((s) => s.markMechanicsSeen)
   const startedAt = useGameStore((s) => s.startedAt)
   const recorded = useRef(false)
 
+  const [introMechanics, setIntroMechanics] = useState<MechanicKind[]>([])
+  const [legendOpen, setLegendOpen] = useState(false)
+  const [reward, setReward] = useState<SolveReward | null>(null)
+
   useEffect(() => {
     recorded.current = false
+    setReward(null)
     if (mode === 'campaign' && levelId) loadCampaignLevel(levelId)
     else if (mode === 'daily') loadDaily()
     else if (mode === 'endless') loadEndless()
     else if (mode === 'ranked') loadRanked()
     else if (mode === 'duel') loadDuel()
   }, [mode, levelId, loadCampaignLevel, loadDaily, loadEndless, loadRanked, loadDuel])
+
+  // Surface an explainer whenever a puzzle introduces a mechanic the player
+  // has not yet encountered.
+  useEffect(() => {
+    if (!puzzle) return
+    const seen = usePlayerStore.getState().seenMechanics
+    const fresh = tutorialMechanics(puzzle.mechanics).filter((m) => !seen.includes(m))
+    setIntroMechanics(fresh)
+  }, [puzzle])
 
   useEffect(() => {
     if (mode !== 'duel') return
@@ -64,18 +81,15 @@ export function PlayPage() {
     if (!board || board.status !== 'won' || !puzzle || recorded.current) return
     recorded.current = true
     const elapsedMs = startedAt ? performance.now() - startedAt : 0
-    recordSolve({
+    const earned = recordSolve({
       puzzleId: puzzle.id,
       rating: board.rating,
       moves: board.moveCount,
       elapsedMs,
       mode: mode === 'creator' ? 'campaign' : mode,
     })
-    if (usePlayerStore.getState().stats.puzzlesSolved === 1) {
-      const a = ACHIEVEMENTS.find((x) => x.id === 'first-spark')
-      if (a) unlockAchievement(a.id, a.sparks)
-    }
-  }, [board, puzzle, mode, startedAt, recordSolve, unlockAchievement])
+    setReward(earned)
+  }, [board, puzzle, mode, startedAt, recordSolve])
 
   if (!puzzle || !board) {
     return (
@@ -85,20 +99,69 @@ export function PlayPage() {
     )
   }
 
+  const isCampaign = mode === 'campaign'
+  const chapterMeta = isCampaign ? getChapterMeta(puzzle.chapter) : undefined
+  const stageInfo = isCampaign ? getStageInfo(puzzle) : null
+  const chapterOpening = isCampaign && isChapterOpening(puzzle)
+  const puzzleMechanics = tutorialMechanics(puzzle.mechanics)
+
+  const dismissIntro = () => {
+    markMechanicsSeen(puzzle.mechanics)
+    setIntroMechanics([])
+  }
+
   return (
     <div className="relative min-h-dvh py-4">
+      {introMechanics.length > 0 && (
+        <MechanicIntro
+          mechanics={introMechanics}
+          chapter={
+            chapterOpening && chapterMeta
+              ? {
+                  id: chapterMeta.id,
+                  title: chapterMeta.title,
+                  subtitle: chapterMeta.subtitle,
+                }
+              : undefined
+          }
+          onClose={dismissIntro}
+        />
+      )}
+      {legendOpen && (
+        <MechanicIntro
+          mechanics={puzzleMechanics.length > 0 ? puzzleMechanics : ['basic']}
+          variant="legend"
+          onClose={() => setLegendOpen(false)}
+        />
+      )}
+
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
-          <Link to={mode === 'campaign' ? '/campaign' : '/'} className="text-xs text-muted hover:text-[var(--color-text)]">
+          <Link to={isCampaign ? '/campaign' : '/'} className="text-xs text-muted hover:text-[var(--color-text)]">
             ← Back
           </Link>
-          <h1 className="mt-2 text-xl font-light tracking-wide">{puzzle.title}</h1>
-          <div className="mt-2 flex flex-wrap gap-2">
+          {isCampaign && chapterMeta && stageInfo && (
+            <p className="mt-2 text-xs uppercase tracking-[0.28em] text-[var(--color-accent)]">
+              Chapter {chapterMeta.id} · {chapterMeta.title} · Stage {stageInfo.stage}/
+              {stageInfo.totalStages}
+            </p>
+          )}
+          <h1 className="mt-1 text-xl font-light tracking-wide">{puzzle.title}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <Pill>{mode}</Pill>
             <Pill>
               Moves {board.moveCount}
               {puzzle.par.perfect ? ` / ${puzzle.par.perfect}` : ''}
             </Pill>
+            {puzzleMechanics.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setLegendOpen(true)}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]"
+              >
+                <span aria-hidden>ⓘ</span> How nodes work
+              </button>
+            )}
           </div>
         </div>
         <div className="flex gap-2">
@@ -127,6 +190,9 @@ export function PlayPage() {
             rating={board.rating}
             moves={board.moveCount}
             parPerfect={puzzle.par.perfect}
+            sparks={reward?.sparks}
+            prisms={reward?.prisms}
+            chapterComplete={reward?.chapterComplete}
             showNext={mode === 'campaign' || mode === 'endless'}
             onNext={() => {
               if (mode === 'endless') {

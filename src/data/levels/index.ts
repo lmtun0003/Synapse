@@ -69,3 +69,30 @@ export function getNextLevel(id: string): PuzzleDefinition | undefined {
   if (idx < 0) return undefined
   return CAMPAIGN_LEVELS[idx + 1]
 }
+
+export type ChapterMeta = (typeof CHAPTERS)[number]
+
+export function getChapterMeta(chapterId: number): ChapterMeta | undefined {
+  return CHAPTERS.find((c) => c.id === chapterId)
+}
+
+export function levelsInChapter(chapterId: number): PuzzleDefinition[] {
+  return CAMPAIGN_LEVELS.filter((l) => l.chapter === chapterId).sort(
+    (a, b) => a.levelNumber - b.levelNumber,
+  )
+}
+
+/** Position of a level within its chapter, e.g. Stage 3 / 20. */
+export function getStageInfo(level: PuzzleDefinition): {
+  stage: number
+  totalStages: number
+} {
+  const chapterLevels = levelsInChapter(level.chapter)
+  const stage = chapterLevels.findIndex((l) => l.id === level.id) + 1
+  return { stage, totalStages: chapterLevels.length }
+}
+
+/** Whether this level is the first stage of its chapter. */
+export function isChapterOpening(level: PuzzleDefinition): boolean {
+  return getStageInfo(level).stage === 1
+}

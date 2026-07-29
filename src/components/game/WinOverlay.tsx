@@ -11,6 +11,9 @@ interface WinOverlayProps {
   onRetry: () => void
   onExit: () => void
   showNext?: boolean
+  sparks?: number
+  prisms?: number
+  chapterComplete?: boolean
 }
 
 export function WinOverlay({
@@ -21,6 +24,9 @@ export function WinOverlay({
   onRetry,
   onExit,
   showNext = true,
+  sparks = 0,
+  prisms = 0,
+  chapterComplete = false,
 }: WinOverlayProps) {
   return (
     <motion.div
@@ -44,6 +50,27 @@ export function WinOverlay({
           <span className="text-faint"> · </span>
           Perfect at {parPerfect}
         </p>
+
+        {(sparks > 0 || prisms > 0) && (
+          <div className="mt-5 flex items-center justify-center gap-3">
+            {sparks > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent-soft)] px-3 py-1.5 text-sm text-[var(--color-accent)]">
+                +{sparks} <span aria-hidden>✦</span>
+              </span>
+            )}
+            {prisms > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(139,92,246,0.16)] px-3 py-1.5 text-sm text-[var(--color-secondary)]">
+                +{prisms} <span aria-hidden>◆</span>
+              </span>
+            )}
+          </div>
+        )}
+        {chapterComplete && (
+          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-[var(--color-secondary)]">
+            Chapter complete · bonus Prisms
+          </p>
+        )}
+
         <div className="mt-8 flex flex-col gap-3">
           {showNext && onNext && (
             <Button fullWidth onClick={onNext}>
